@@ -1,0 +1,47 @@
+<view class="container">
+  <!-- 顶部状态栏 -->
+  <view class="status-bar"></view>
+  
+  <!-- 账单头部信息 -->
+  <view class="bill-header {{bill.type}}">
+    <view class="bill-type">{{bill.type == 'income' ? '收入' : '支出'}}</view>
+    <view class="bill-amount">¥{{bill.amount}}</view>
+    <view class="bill-date">{{bill.date}}</view>
+  </view>
+
+  <!-- 账单详情卡片 -->
+  <view class="detail-card">
+    <view class="detail-item">
+      <text class="detail-label">分类</text>
+      <view class="detail-value">
+        <text class="category-icon iconfont icon-a-068_{{bill.icon}}"></text>
+        <text>{{bill.text}}</text>
+      </view>
+    </view>
+    
+    <view class="detail-divider"></view>
+    
+    <view class="detail-item">
+      <text class="detail-label">备注</text>
+      <text class="detail-value">{{bill.remarks || '无备注信息'}}</text>
+    </view>
+    
+    <view class="detail-divider"></view>
+    
+    <view class="detail-item">
+      <text class="detail-label">创建时间</text>
+      <text class="detail-value">{{bill.date}}</text>
+    </view>
+  </view>
+
+  <!-- 操作按钮区域 -->
+  <view class="action-buttons">
+    <button class="edit-btn" bindtap="editBill">
+      <text>编辑账单</text>
+    </button>
+    
+    <button class="delete-btn" bindtap="deleteBill">
+      <text>删除账单</text>
+    </button>
+  </view>
+</view>

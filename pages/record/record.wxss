@@ -1,0 +1,158 @@
+.container {
+  min-height: 100vh;
+  background-color: #f5f5f5;
+}
+
+.status-bar {
+  height: var(--status-bar-height);
+  background-color: #4caf50;
+}
+
+.type-selector {
+  display: flex;
+  background-color: white;
+}
+
+.type-item {
+  flex: 1;
+  text-align: center;
+  padding: 30rpx 0;
+  font-size: 32rpx;
+  color: #666;
+  position: relative;
+}
+
+.type-item.active {
+  color: #4caf50;
+}
+
+.type-item.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60rpx;
+  height: 6rpx;
+  background-color: #4caf50;
+  border-radius: 3rpx;
+}
+
+.amount-section {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 60rpx 0;
+  background-color: white;
+  margin: 20rpx;
+  border-radius: 10rpx;
+}
+
+.currency-symbol {
+  font-size: 90rpx;
+  color: #333;
+  margin-right: 20rpx;
+  margin-bottom: 20rpx;
+}
+
+.amount-input {
+  font-size: 80rpx;
+  color: #333;
+  text-align: left;
+  width: 300rpx;
+  padding-bottom: 10rpx;
+  height: 100rpx;
+}
+
+.category-section, .note-section, .date-section {
+  background-color: white;
+  margin: 20rpx;
+  border-radius: 10rpx;
+  padding: 30rpx;
+}
+
+.section-title {
+  font-size: 32rpx;
+  color: #333;
+  margin-bottom: 30rpx;
+  font-weight: bold;
+}
+
+.category-scroll {
+  white-space: nowrap;
+}
+
+.category-list {
+  display: inline-flex;
+}
+
+.category-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-right: 40rpx;
+}
+
+.category-item:last-child {
+  margin-right: 0;
+}
+
+.category-icon {
+  width: 70rpx;
+  height: 70rpx;
+  font-size: 60rpx;
+  padding: 6rpx;
+  border-radius: 50%;
+  margin-bottom: 10rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+}
+
+.category-name {
+  font-size: 26rpx;
+  color: #666;
+}
+
+.category-item.selected .category-name {
+  color: #4caf50;
+  font-weight: bold;
+}
+
+.category-item.selected .category-icon {
+  background-color: #4caf50;
+  color: #fff;
+}
+
+.note-input, .date-display {
+  font-size: 26rpx;
+  padding: 20rpx;
+  background-color: #f9f9f9;
+  border-radius: 8rpx;
+  color: #333;
+}
+
+.date-display {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.arrow-icon {
+  width: 30rpx;
+  height: 30rpx;
+}
+
+.save-btn {
+  margin: 40rpx 20rpx 20rpx;
+  background-color: #4caf50;
+  color: white;
+  font-size: 32rpx;
+  padding: 25rpx;
+  border-radius: 10rpx;
+}
+
+.save-btn[disabled] {
+  background-color: #ccc;
+}

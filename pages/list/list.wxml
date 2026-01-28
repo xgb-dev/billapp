@@ -1,0 +1,72 @@
+<view class="container">
+  <!-- 顶部状态栏 -->
+  <view class="status-bar"></view>
+  
+  <!-- 筛选工具栏 -->
+  <view class="filter-bar">
+    <picker mode="date" value="{{selectedMonth}}" start="2020-01" end="{{currentMonth}}" bindchange="onMonthChange">
+      <view class="month-picker">
+        <text>{{selectedMonth}}账单</text>
+        <image src="/images/arrow.png" class="arrow-icon"></image>
+      </view>
+    </picker>
+    
+    <view class="filter-tabs">
+      <view class="filter-tab {{filterType === 'all' ? 'active' : ''}}" bindtap="selectFilter" data-type="all">
+        <text>全部</text>
+      </view>
+      <view class="filter-tab {{filterType === 'income' ? 'active' : ''}}" bindtap="selectFilter" data-type="income">
+        <text>收入</text>
+      </view>
+      <view class="filter-tab {{filterType === 'expense' ? 'active' : ''}}" bindtap="selectFilter" data-type="expense">
+        <text>支出</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 月度统计卡片 -->
+  <view class="summary-card">
+    <view class="summary-item">
+      <text class="summary-label">总收入</text>
+      <text class="summary-value income">¥{{monthSummary.income}}</text>
+    </view>
+    <view class="summary-item">
+      <text class="summary-label">总支出</text>
+      <text class="summary-value expense">¥{{monthSummary.expense}}</text>
+    </view>
+    <view class="summary-item">
+      <text class="summary-label">结余</text>
+      <text class="summary-value balance">¥{{monthSummary.balance}}</text>
+    </view>
+  </view>
+
+  <!-- 账单列表 -->
+  <scroll-view scroll-y class="bill-list">
+    <block wx:for="{{groupedBills}}" wx:for-item="group" wx:for-index="date" wx:key="date">
+      <!-- 日期分组标题 -->
+      <view class="date-group-header">
+        <text>{{formatDateGroup(date)}}</text>
+        <text>{{date}}</text>
+      </view>
+      
+      <!-- 账单项 -->
+      <block wx:for="{{group.bills}}" wx:for-item="bill" wx:key="bill.id">
+        <view class="bill-item" bindtap="viewBillDetail" data-id="{{bill.id}}">
+          <text class="bill-icon icon iconfont icon-a-068_{{bill.categoryIcon}}"></text>
+          <view class="bill-info">
+            <text class="bill-category">{{bill.category}}</text>
+            <text class="bill-note">{{bill.note || '无备注'}}</text>
+          </view>
+          <text class="bill-amount {{bill.type}}">{{bill.type === 'income' ? '+' : '-'}}¥{{bill.amount}}</text>
+        </view>
+      </block>
+    </block>
+    
+    <!-- 空数据提示 -->
+    <view class="empty-tip" wx:if="{{!hasBills}}">
+      <image src="/images/empty.png" class="empty-icon"></image>
+      <text class="empty-text">本月暂无账单记录</text>
+      <button class="add-btn" bindtap="goToAddBill">+ 添加账单</button>
+    </view>
+  </scroll-view>
+</view>

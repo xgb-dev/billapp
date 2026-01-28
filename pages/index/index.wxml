@@ -1,0 +1,62 @@
+<view class="container">
+  <!-- 顶部状态栏 -->
+  <view class="status-bar"></view>
+  
+  <!-- 头部信息卡片 -->
+  <view class="header-card">
+    <view class="header-title">
+      <text>我的账本</text>
+      <view class="refresh" bind:tap="loadAccountData"><image style="width: 40rpx;height: 40rpx;margin-right: 4rpx;" src="/images/refresh.png"></image> <text>刷新</text></view>
+    </view>
+    <view class="balance-section">
+      <text class="balance-label">当前余额</text>
+      <text class="balance-amount">¥{{totalBalance}}</text>
+    </view>
+    <view class="summary-section">
+      <view class="summary-item">
+        <text class="summary-label">本月收入</text>
+        <text class="summary-amount income">+¥{{monthIncome}}</text>
+      </view>
+      <view class="summary-item">
+        <text class="summary-label">本月支出</text>
+        <text class="summary-amount expense">-¥{{monthExpense}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 快捷记账按钮 -->
+  <view class="quick-buttons">
+    <button class="quick-btn income-btn" bindtap="goToIncome">
+      <image src="/images/income.png" class="btn-icon"></image>
+      <text class="btn-text">记收入</text>
+    </button>
+    <button class="quick-btn expense-btn" bindtap="goToExpense">
+      <image src="/images/expenses.png" class="btn-icon"></image>
+      <text class="btn-text">记支出</text>
+    </button>
+  </view>
+
+  <!-- 最近账单列表 -->
+  <view class="bill-section">
+    <view class="section-header">
+      <text class="section-title">最近账单</text>
+      <text class="section-more" bindtap="goToBillList">查看全部</text>
+    </view>
+    <scroll-view scroll-y class="bill-list">
+      <block wx:for="{{recentBills}}" wx:key="id">
+        <view class="bill-item" bindtap="viewBillDetail" data-id="{{item.id}}">
+          <text class="bill-icon icon iconfont icon-a-068_{{item.categoryIcon}}"></text>
+          <view class="bill-info">
+            <text class="bill-category">{{item.category}}</text>
+            <text class="bill-time">{{item.date}}</text>
+          </view>
+          <text class="bill-amount {{item.type}}">{{item.type === 'income' ? '+' : '-'}}¥{{item.amount}}</text>
+        </view>
+      </block>
+      <view class="empty-tip" wx:if="{{recentBills.length === 0}}">
+        <image src="/images/empty.png" class="empty-icon"></image>
+        <text>暂无账单记录</text>
+      </view>
+    </scroll-view>
+  </view>
+</view>
