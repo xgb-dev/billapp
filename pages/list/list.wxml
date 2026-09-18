@@ -1,72 +1,156 @@
 <view class="container">
-  <!-- 顶部状态栏 -->
-  <view class="status-bar"></view>
-  
-  <!-- 筛选工具栏 -->
-  <view class="filter-bar">
-    <picker mode="date" value="{{selectedMonth}}" start="2020-01" end="{{currentMonth}}" bindchange="onMonthChange">
-      <view class="month-picker">
-        <text>{{selectedMonth}}账单</text>
-        <image src="/images/arrow.png" class="arrow-icon"></image>
-      </view>
-    </picker>
-    
-    <view class="filter-tabs">
-      <view class="filter-tab {{filterType === 'all' ? 'active' : ''}}" bindtap="selectFilter" data-type="all">
-        <text>全部</text>
-      </view>
-      <view class="filter-tab {{filterType === 'income' ? 'active' : ''}}" bindtap="selectFilter" data-type="income">
-        <text>收入</text>
-      </view>
-      <view class="filter-tab {{filterType === 'expense' ? 'active' : ''}}" bindtap="selectFilter" data-type="expense">
-        <text>支出</text>
-      </view>
-    </view>
-  </view>
-
-  <!-- 月度统计卡片 -->
-  <view class="summary-card">
-    <view class="summary-item">
-      <text class="summary-label">总收入</text>
-      <text class="summary-value income">¥{{monthSummary.income}}</text>
-    </view>
-    <view class="summary-item">
-      <text class="summary-label">总支出</text>
-      <text class="summary-value expense">¥{{monthSummary.expense}}</text>
-    </view>
-    <view class="summary-item">
-      <text class="summary-label">结余</text>
-      <text class="summary-value balance">¥{{monthSummary.balance}}</text>
-    </view>
-  </view>
-
-  <!-- 账单列表 -->
-  <scroll-view scroll-y class="bill-list">
-    <block wx:for="{{groupedBills}}" wx:for-item="group" wx:for-index="date" wx:key="date">
-      <!-- 日期分组标题 -->
-      <view class="date-group-header">
-        <text>{{formatDateGroup(date)}}</text>
-        <text>{{date}}</text>
-      </view>
-      
-      <!-- 账单项 -->
-      <block wx:for="{{group.bills}}" wx:for-item="bill" wx:key="bill.id">
-        <view class="bill-item" bindtap="viewBillDetail" data-id="{{bill.id}}">
-          <text class="bill-icon icon iconfont icon-a-068_{{bill.categoryIcon}}"></text>
-          <view class="bill-info">
-            <text class="bill-category">{{bill.category}}</text>
-            <text class="bill-note">{{bill.note || '无备注'}}</text>
-          </view>
-          <text class="bill-amount {{bill.type}}">{{bill.type === 'income' ? '+' : '-'}}¥{{bill.amount}}</text>
+  <!-- 顶部搜索与工具栏 -->
+  <view class="filter-header">
+    <!-- 搜索输入栏 -->
+    <view class="search-bar-wrap">
+      <view class="search-box">
+        <text class="search-icon">🔍</text>
+        <input 
+          class="search-input" 
+          placeholder="搜索分类、备注、金额..." 
+          placeholder-class="search-placeholder"
+          value="{{searchKey}}"
+          bindinput="onSearchInput"
+        />
+        <view class="search-clear-btn touch-active" wx:if="{{searchKey}}" bindtap="clearSearch">
+          <text class="clear-icon">×</text>
         </view>
-      </block>
+      </view>
+    </view>
+
+    <!-- 月份选择与分类筛选 Tab -->
+    <view class="filter-top-row">
+      <!-- 月份选择器胶囊 -->
+      <picker mode="date" fields="month" value="{{selectedMonth}}" start="2020-01" end="{{currentMonth}}" bindchange="onMonthChange">
+        <view class="month-capsule touch-active">
+          <text class="calendar-icon">📅</text>
+          <text class="month-text">{{selectedMonth}}</text>
+          <text class="dropdown-arrow">▼</text>
+        </view>
+      </picker>
+
+      <!-- 收支类型筛选标签 -->
+      <view class="type-chips">
+        <view class="chip touch-active {{filterType === 'all' ? 'active' : ''}}" bindtap="selectFilter" data-type="all">
+          <text>全部</text>
+        </view>
+        <view class="chip touch-active {{filterType === 'income' ? 'active income' : ''}}" bindtap="selectFilter" data-type="income">
+          <text>收入</text>
+        </view>
+        <view class="chip touch-active {{filterType === 'expense' ? 'active expense' : ''}}" bindtap="selectFilter" data-type="expense">
+          <text>支出</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 月度/搜索统计看板 -->
+    <view class="monthly-summary-card">
+      <view class="summary-col">
+        <text class="summary-label">{{isSearching ? '搜索收入' : '总收入'}}</text>
+        <text class="summary-val income font-number">+¥{{monthSummary.income}}</text>
+      </view>
+      <view class="col-divider"></view>
+      <view class="summary-col">
+        <text class="summary-label">{{isSearching ? '搜索支出' : '总支出'}}</text>
+        <text class="summary-val expense font-number">-¥{{monthSummary.expense}}</text>
+      </view>
+      <view class="col-divider"></view>
+      <view class="summary-col">
+        <text class="summary-label">{{isSearching ? '搜算结余' : '本月结余'}}</text>
+        <text class="summary-val balance font-number">¥{{monthSummary.balance}}</text>
+      </view>
+    </view>
+
+    <!-- 支出分类占比排行榜看板（非搜索状态下且有支出时展示） -->
+    <view class="ranking-card" wx:if="{{!isSearching && categoryRankings.length > 0}}">
+      <view class="ranking-header" bindtap="toggleRanking">
+        <view class="ranking-title-row">
+          <text class="ranking-badge-icon">📊</text>
+          <text class="ranking-title">本月支出排行</text>
+          <text class="ranking-count-tag font-number">{{categoryRankings.length}} 类开支</text>
+        </view>
+        <view class="ranking-toggle-btn touch-active">
+          <text class="ranking-toggle-text">{{showRanking ? '收起' : '展开排行'}}</text>
+          <text class="ranking-toggle-arrow {{showRanking ? 'up' : ''}}">›</text>
+        </view>
+      </view>
+
+      <!-- 排行榜列表项 -->
+      <view class="ranking-list">
+        <block wx:for="{{categoryRankings}}" wx:key="name">
+          <!-- 默认只展示前3项，展开时展示全部 -->
+          <view class="ranking-item" wx:if="{{index < 3 || showRanking}}">
+            <view class="rank-num font-number {{index < 3 ? 'top-rank' : ''}}">{{index + 1}}</view>
+            <view class="rank-icon-wrap">
+              <text class="iconfont icon-a-068_{{item.icon}}"></text>
+            </view>
+            <view class="rank-main">
+              <view class="rank-info-row">
+                <text class="rank-name">{{item.name}}</text>
+                <text class="rank-amount font-number">¥{{item.total}} <text class="rank-pct">({{item.percent}}%)</text></text>
+              </view>
+              <view class="rank-bar-track">
+                <view class="rank-bar-fill" style="width: {{item.percent}}%;"></view>
+              </view>
+            </view>
+          </view>
+        </block>
+      </view>
+
+      <!-- 深度图表分析入口 -->
+      <view class="view-chart-link touch-active" bindtap="goToChart">
+        <text>查看消费结构环形图与智能洞察</text>
+        <text class="link-arrow">›</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 账单分组列表 -->
+  <scroll-view scroll-y class="bill-scroll-area">
+    <block wx:if="{{hasBills}}">
+      <view class="bill-groups-wrapper">
+        <block wx:for="{{groupedBills}}" wx:for-item="group" wx:for-index="date" wx:key="date">
+          <view class="date-group-card">
+            <!-- 分组头部 -->
+            <view class="group-header">
+              <view class="header-left">
+                <text class="date-friendly">{{group.friendlyDate || date}}</text>
+                <text class="date-full font-number">{{date}}</text>
+              </view>
+              <view class="header-right">
+                <text class="group-count font-number">{{group.bills.length}} 笔明细</text>
+              </view>
+            </view>
+
+            <!-- 当日账单列表项 -->
+            <view class="group-bills">
+              <block wx:for="{{group.bills}}" wx:for-item="bill" wx:key="bill.id">
+                <view class="bill-item touch-active" bindtap="viewBillDetail" data-id="{{bill.id}}">
+                  <view class="icon-avatar {{bill.type}}">
+                    <text class="iconfont icon-a-068_{{bill.categoryIcon}}"></text>
+                  </view>
+                  <view class="bill-main">
+                    <text class="bill-category">{{bill.category}}</text>
+                    <text class="bill-note" wx:if="{{bill.note}}">{{bill.note}}</text>
+                  </view>
+                  <view class="bill-amount-wrap">
+                    <text class="bill-amount font-number {{bill.type}}">{{bill.type === 'income' ? '+' : '-'}}¥{{bill.amount}}</text>
+                  </view>
+                </view>
+              </block>
+            </view>
+          </view>
+        </block>
+      </view>
     </block>
-    
-    <!-- 空数据提示 -->
-    <view class="empty-tip" wx:if="{{!hasBills}}">
-      <image src="/images/empty.png" class="empty-icon"></image>
-      <text class="empty-text">本月暂无账单记录</text>
-      <button class="add-btn" bindtap="goToAddBill">+ 添加账单</button>
+
+    <!-- 空数据展示 -->
+    <view class="empty-state" wx:if="{{!hasBills}}">
+      <image src="/images/empty.png" class="empty-img" mode="aspectFit"></image>
+      <text class="empty-title">{{isSearching ? '未找到相关账单' : '本月暂无账单明细'}}</text>
+      <text class="empty-sub">{{isSearching ? '换个搜索关键词试试看' : '换个月份或者记一笔试试吧'}}</text>
+      <button class="add-bill-btn touch-active font-number" wx:if="{{!isSearching}}" bindtap="goToAddBill">+ 记一笔</button>
+      <button class="clear-search-btn touch-active font-number" wx:if="{{isSearching}}" bindtap="clearSearch">清空搜索条件</button>
     </view>
   </scroll-view>
 </view>

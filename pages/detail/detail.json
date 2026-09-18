@@ -1,5 +1,6 @@
 {
   "navigationBarTitleText": "账单详情",
-  "navigationBarTextStyle": "white",
-  "backgroundColor": "#f5f5f5"
+  "navigationBarBackgroundColor": "#F7F9FC",
+  "navigationBarTextStyle": "black",
+  "backgroundColor": "#F7F9FC"
 }

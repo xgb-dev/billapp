@@ -1,2 +1,63 @@
 /**app.wxss**/
 @import "/font/iconfont.wxss";
+
+page {
+  --primary: #10B981;
+  --primary-dark: #059669;
+  --primary-light: #ECFDF5;
+  --expense: #F43F5E;
+  --expense-dark: #E11D48;
+  --expense-light: #FFF1F2;
+  --bg-page: #F7F9FC;
+  --card-bg: #FFFFFF;
+  --text-main: #0F172A;
+  --text-sub: #475569;
+  --text-muted: #94A3B8;
+  --border-light: #F1F5F9;
+  --shadow-sm: 0 4rpx 12rpx rgba(15, 23, 42, 0.03);
+  --shadow-md: 0 10rpx 28rpx -6rpx rgba(15, 23, 42, 0.05), 0 4rpx 10rpx -2rpx rgba(15, 23, 42, 0.02);
+  --shadow-lg: 0 18rpx 36rpx -8rpx rgba(16, 185, 129, 0.22);
+  --shadow-expense: 0 18rpx 36rpx -8rpx rgba(244, 63, 94, 0.22);
+  --radius-sm: 14rpx;
+  --radius-md: 22rpx;
+  --radius-lg: 32rpx;
+  --radius-full: 999rpx;
+
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  background-color: var(--bg-page);
+  color: var(--text-main);
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+}
+
+view, text, scroll-view, input, button {
+  box-sizing: border-box;
+}
+
+/* 按钮基础重置 */
+button {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+  font-weight: normal;
+  line-height: inherit;
+}
+button::after {
+  border: none;
+}
+
+/* 触控反馈 */
+.touch-active {
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+.touch-active:active {
+  transform: scale(0.97);
+  opacity: 0.88;
+}
+
+/* 数字排印优化 */
+.font-number {
+  font-family: "DIN Alternate", -apple-system, BlinkMacSystemFont, sans-serif;
+  letter-spacing: 0.5rpx;
+}

@@ -46,8 +46,8 @@ Page({
       
       // 设置顶部状态栏颜色
       wx.setNavigationBarColor({
-        frontColor: '#ffffff',
-        backgroundColor: bill.type === 'income' ? '#4caf50' : '#f44336'
+        frontColor: '#000000',
+        backgroundColor: '#F7F9FC'
       });
     } else {
       wx.showToast({

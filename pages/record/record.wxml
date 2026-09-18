@@ -1,84 +1,153 @@
 <view class="container">
-  <!-- 顶部状态栏 -->
-  <view class="status-bar"></view>
-  
-  <!-- 类型选择器 -->
-  <view class="type-selector">
-    <view class="type-item {{type === 'income' ? 'active' : ''}}" bindtap="selectType" data-type="income">
-      <text>收入</text>
+  <!-- 顶部内容滚动区（分类、表单与金额） -->
+  <view class="record-scroll-body">
+    <!-- 顶部类型分段选择器 -->
+    <view class="segment-wrap">
+      <view class="segmented-control {{type}}">
+        <view 
+          class="segment-item {{type === 'expense' ? 'active' : ''}}" 
+          bindtap="selectType" 
+          data-type="expense"
+        >
+          <text class="segment-text">记支出</text>
+        </view>
+        <view 
+          class="segment-item {{type === 'income' ? 'active' : ''}}" 
+          bindtap="selectType" 
+          data-type="income"
+        >
+          <text class="segment-text">记收入</text>
+        </view>
+      </view>
     </view>
-    <view class="type-item {{type === 'expense' ? 'active' : ''}}" bindtap="selectType" data-type="expense">
-      <text>支出</text>
+
+    <!-- 金额模拟显示屏大卡片 -->
+    <view class="amount-card">
+      <view class="amount-label-row">
+        <text class="amount-label">记账金额</text>
+        <view class="amount-badge-wrap">
+          <text class="eval-preview font-number" wx:if="{{evalPreview}}">{{evalPreview}}</text>
+          <text class="category-tag {{type}}">{{selectedCategoryName || '未选分类'}}</text>
+        </view>
+      </view>
+      
+      <!-- 模拟屏幕与闪烁光标 -->
+      <view class="amount-display-screen">
+        <text class="currency-symbol {{type}}">¥</text>
+        <view class="amount-val-box font-number {{type}}">
+          <text class="amount-expr-text">{{amountExpr || '0.00'}}</text>
+          <text class="blinking-cursor {{type}}">|</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 分类选择网格区域 -->
+    <view class="form-card category-card">
+      <view class="card-title-row">
+        <text class="card-title">选择分类</text>
+        <text class="card-subtitle">{{type === 'expense' ? '支出类目' : '收入类目'}}</text>
+      </view>
+      
+      <scroll-view scroll-y class="category-grid-scroll">
+        <view class="category-grid">
+          <block wx:for="{{categories[type]}}" wx:key="id">
+            <view 
+              class="cat-item touch-active {{selectedCategory === item.id ? 'active ' + type : ''}}" 
+              bindtap="selectCategory" 
+              data-id="{{item.id}}"
+              data-name="{{item.name}}"
+            >
+              <view class="cat-icon-wrap">
+                <text class="iconfont icon-a-068_{{item.icon}}"></text>
+              </view>
+              <text class="cat-name">{{item.name}}</text>
+            </view>
+          </block>
+        </view>
+      </scroll-view>
+    </view>
+
+    <!-- 详细信息表单（备注与日期） -->
+    <view class="form-card details-card">
+      <!-- 日期选择行 -->
+      <picker mode="date" value="{{date}}" start="2020-01-01" end="{{today}}" bindchange="onDateChange">
+        <view class="form-row touch-active">
+          <view class="form-row-left">
+            <view class="row-icon-box date-icon-box">
+              <text class="iconfont icon-a-068_bianji"></text>
+            </view>
+            <text class="row-label">账单日期</text>
+          </view>
+          <view class="form-row-right">
+            <text class="date-val font-number">{{date}}</text>
+            <text class="arrow">›</text>
+          </view>
+        </view>
+      </picker>
+
+      <view class="form-divider"></view>
+
+      <!-- 备注输入行 -->
+      <view class="form-row">
+        <view class="form-row-left">
+          <view class="row-icon-box note-icon-box">
+            <text class="iconfont icon-a-068_qita-60"></text>
+          </view>
+          <text class="row-label">备注说明</text>
+        </view>
+        <view class="form-row-right input-wrapper">
+          <input 
+            class="note-input" 
+            placeholder="添加备注（选填）" 
+            placeholder-class="note-placeholder"
+            bindinput="onNoteInput"
+            value="{{note}}"
+          />
+        </view>
+      </view>
     </view>
   </view>
 
-  <!-- 金额输入区域 -->
-  <view class="amount-section">
-    <text class="currency-symbol">¥</text>
-    <input 
-      class="amount-input" 
-      type="digit" 
-      placeholder="0.00" 
-      focus="{{focusAmount}}" 
-      bindinput="onAmountInput"
-      value="{{amount}}"
-    />
-  </view>
-
-  <!-- 分类选择区域 -->
-  <view class="category-section">
-    <view class="section-title">选择分类</view>
-    <scroll-view scroll-x class="category-scroll">
-      <view class="category-list" wx:if="{{type === 'income'}}">
-        <block wx:for="{{categories.income}}" wx:key="id">
-          <view 
-            class="category-item {{selectedCategory === item.id ? 'selected' : ''}}" 
-            bindtap="selectCategory" 
-            data-id="{{item.id}}"
-            data-name="{{item.name}}"
-          >
-            <text class="category-icon iconfont icon-a-068_{{item.icon}}"></text>
-            <text class="category-name">{{item.name}}</text>
+  <!-- 底部固定 4×4 经典金融自定义计算键盘 -->
+  <view class="custom-keypad-panel">
+    <view class="keypad-grid">
+      <!-- 左侧 3 列数字与符号按键 -->
+      <view class="keypad-digits">
+        <view class="key-row">
+          <view class="key-btn digit-key touch-active" bindtap="handleKeypad" data-key="1">1</view>
+          <view class="key-btn digit-key touch-active" bindtap="handleKeypad" data-key="2">2</view>
+          <view class="key-btn digit-key touch-active" bindtap="handleKeypad" data-key="3">3</view>
+        </view>
+        <view class="key-row">
+          <view class="key-btn digit-key touch-active" bindtap="handleKeypad" data-key="4">4</view>
+          <view class="key-btn digit-key touch-active" bindtap="handleKeypad" data-key="5">5</view>
+          <view class="key-btn digit-key touch-active" bindtap="handleKeypad" data-key="6">6</view>
+        </view>
+        <view class="key-row">
+          <view class="key-btn digit-key touch-active" bindtap="handleKeypad" data-key="7">7</view>
+          <view class="key-btn digit-key touch-active" bindtap="handleKeypad" data-key="8">8</view>
+          <view class="key-btn digit-key touch-active" bindtap="handleKeypad" data-key="9">9</view>
+        </view>
+        <view class="key-row">
+          <view class="key-btn symbol-key touch-active" bindtap="handleKeypad" data-key=".">.</view>
+          <view class="key-btn digit-key touch-active" bindtap="handleKeypad" data-key="0">0</view>
+          <view class="key-btn symbol-key del-key touch-active" bindtap="handleKeypad" data-key="del">
+            <text class="del-icon">⌫</text>
           </view>
-        </block>
+        </view>
       </view>
-      <view class="category-list" wx:if="{{type === 'expense'}}">
-        <block wx:for="{{categories.expense}}" wx:key="id">
-          <view 
-            class="category-item {{selectedCategory === item.id ? 'selected' : ''}}" 
-            bindtap="selectCategory" 
-            data-id="{{item.id}}"
-            data-name="{{item.name}}"
-          >
-            <text class="category-icon iconfont icon-a-068_{{item.icon}}"></text>
-            <text class="category-name">{{item.name}}</text>
-          </view>
-        </block>
+
+      <!-- 右侧 1 列计算与保存复合操作区 -->
+      <view class="keypad-ops">
+        <view class="key-btn op-key touch-active" bindtap="handleKeypad" data-key="+">+</view>
+        <view class="key-btn op-key touch-active" bindtap="handleKeypad" data-key="-">-</view>
+        <view 
+          class="key-btn primary-action-key touch-active {{type}} {{(!canSave && !isOperating) ? 'disabled' : ''}}" 
+          bindtap="handlePrimaryAction"
+        >
+          <text class="action-btn-text">{{isOperating ? '=' : (id ? '保存' : '完成')}}</text>
+        </view>
       </view>
-    </scroll-view>
+    </view>
   </view>
-
-  <!-- 备注输入区域 -->
-  <view class="note-section">
-    <text class="section-title">添加备注</text>
-    <input 
-      class="note-input" 
-      placeholder="例如：午餐、打车等" 
-      bindinput="onNoteInput"
-      value="{{note}}"
-    />
-  </view>
-
-  <!-- 日期选择区域 -->
-  <view class="date-section">
-    <text class="section-title">选择日期</text>
-    <picker mode="date" value="{{date}}" start="2020-01-01" end="{{today}}" bindchange="onDateChange">
-      <view class="date-display">
-        <text>{{date}}</text>
-      </view>
-    </picker>
-  </view>
-
-  <!-- 保存按钮 -->
-  <button class="save-btn" bindtap="saveRecord" disabled="{{!canSave}}">保存记录</button>
 </view>

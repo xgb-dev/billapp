@@ -4,12 +4,17 @@
     "pages/logs/logs",
     "pages/record/record",
     "pages/list/list",
-    "pages/detail/detail"
+    "pages/detail/detail",
+    "pages/chart/chart",
+    "pages/trip/trip-create",
+    "pages/trip/trip-detail",
+    "pages/trip/aa-add"
   ],
   "window": {
     "navigationBarTextStyle": "black",
-    "navigationBarTitleText": "Weixin",
-    "navigationBarBackgroundColor": "#ffffff"
+    "navigationBarTitleText": "记账本",
+    "navigationBarBackgroundColor": "#F7F9FC",
+    "backgroundColor": "#F7F9FC"
   },
   "style": "v2",
   "componentFramework": "glass-easel",

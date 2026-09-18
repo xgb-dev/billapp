@@ -1,47 +1,78 @@
 <view class="container">
-  <!-- 顶部状态栏 -->
-  <view class="status-bar"></view>
-  
-  <!-- 账单头部信息 -->
-  <view class="bill-header {{bill.type}}">
-    <view class="bill-type">{{bill.type == 'income' ? '收入' : '支出'}}</view>
-    <view class="bill-amount">¥{{bill.amount}}</view>
-    <view class="bill-date">{{bill.date}}</view>
+  <!-- 账单核心卡片 -->
+  <view class="hero-card-wrapper">
+    <view class="hero-card {{bill.type}}">
+      <view class="category-badge-box {{bill.type}}">
+        <text class="iconfont icon-a-068_{{bill.icon}}"></text>
+      </view>
+      <view class="type-pill {{bill.type}}">
+        <text>{{bill.type === 'income' ? '收入' : '支出'}}</text>
+      </view>
+      <view class="amount-wrap font-number">
+        <text class="amount-sign">{{bill.type === 'income' ? '+' : '-'}}</text>
+        <text class="amount-num">{{bill.amount}}</text>
+      </view>
+      <text class="hero-date font-number">{{bill.date}}</text>
+    </view>
   </view>
 
-  <!-- 账单详情卡片 -->
+  <!-- 账单明细信息卡片 -->
   <view class="detail-card">
-    <view class="detail-item">
-      <text class="detail-label">分类</text>
-      <view class="detail-value">
-        <text class="category-icon iconfont icon-a-068_{{bill.icon}}"></text>
-        <text>{{bill.text}}</text>
+    <view class="detail-row">
+      <view class="row-left">
+        <text class="row-icon">🏷️</text>
+        <text class="row-label">分类项目</text>
+      </view>
+      <view class="row-right">
+        <text class="row-val main-val">{{bill.text || '其他'}}</text>
       </view>
     </view>
     
     <view class="detail-divider"></view>
     
-    <view class="detail-item">
-      <text class="detail-label">备注</text>
-      <text class="detail-value">{{bill.remarks || '无备注信息'}}</text>
+    <view class="detail-row">
+      <view class="row-left">
+        <text class="row-icon">📝</text>
+        <text class="row-label">备注内容</text>
+      </view>
+      <view class="row-right">
+        <text class="row-val">{{bill.remarks || '无备注信息'}}</text>
+      </view>
     </view>
     
     <view class="detail-divider"></view>
     
-    <view class="detail-item">
-      <text class="detail-label">创建时间</text>
-      <text class="detail-value">{{bill.date}}</text>
+    <view class="detail-row">
+      <view class="row-left">
+        <text class="row-icon">📅</text>
+        <text class="row-label">记账日期</text>
+      </view>
+      <view class="row-right">
+        <text class="row-val font-number">{{bill.date}}</text>
+      </view>
+    </view>
+
+    <view class="detail-divider" wx:if="{{bill.paytype}}"></view>
+
+    <view class="detail-row" wx:if="{{bill.paytype}}">
+      <view class="row-left">
+        <text class="row-icon">💳</text>
+        <text class="row-label">支付方式</text>
+      </view>
+      <view class="row-right">
+        <text class="row-val">{{bill.paytype}}</text>
+      </view>
     </view>
   </view>
 
-  <!-- 操作按钮区域 -->
-  <view class="action-buttons">
-    <button class="edit-btn" bindtap="editBill">
-      <text>编辑账单</text>
+  <!-- 底部操作悬浮按钮组 -->
+  <view class="bottom-action-bar">
+    <button class="action-btn edit-btn touch-active" bindtap="editBill">
+      <text class="btn-text">编辑账单</text>
     </button>
     
-    <button class="delete-btn" bindtap="deleteBill">
-      <text>删除账单</text>
+    <button class="action-btn delete-btn touch-active" bindtap="deleteBill">
+      <text class="btn-text">删除账单</text>
     </button>
   </view>
 </view>

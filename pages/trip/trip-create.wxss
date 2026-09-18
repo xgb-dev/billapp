@@ -1,0 +1,257 @@
+.container {
+  min-height: 100vh;
+  background-color: var(--bg-page);
+  padding: 24rpx 28rpx calc(140rpx + env(safe-area-inset-bottom));
+}
+
+.form-card {
+  background-color: var(--card-bg);
+  border-radius: var(--radius-lg);
+  padding: 30rpx 28rpx;
+  box-shadow: var(--shadow-md);
+  border: 1rpx solid var(--border-light);
+  margin-bottom: 24rpx;
+}
+
+.card-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24rpx;
+  padding-bottom: 16rpx;
+  border-bottom: 1rpx solid var(--border-light);
+}
+
+.card-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.card-tip {
+  font-size: 22rpx;
+  color: var(--text-muted);
+}
+
+.form-item {
+  display: flex;
+  flex-direction: column;
+  padding: 12rpx 0;
+}
+
+.item-label {
+  font-size: 26rpx;
+  color: var(--text-sub);
+  font-weight: 600;
+  margin-bottom: 12rpx;
+}
+
+.form-input {
+  height: 88rpx;
+  min-height: 88rpx;
+  line-height: 88rpx;
+  font-size: 28rpx;
+  color: var(--text-main);
+  background-color: #F8FAFC;
+  padding: 0 24rpx;
+  border-radius: var(--radius-md);
+  border: 1rpx solid #E2E8F0;
+  box-sizing: border-box;
+}
+
+.input-placeholder {
+  color: var(--text-muted);
+  font-size: 28rpx;
+}
+
+.divider {
+  height: 1rpx;
+  background-color: var(--border-light);
+  margin: 16rpx 0;
+}
+
+.date-pickers-wrap {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.date-btn {
+  background-color: #F8FAFC;
+  height: 84rpx;
+  line-height: 84rpx;
+  padding: 0 28rpx;
+  border-radius: var(--radius-md);
+  border: 1rpx solid #E2E8F0;
+  font-size: 26rpx;
+  color: var(--text-main);
+  font-weight: 500;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+}
+
+.date-sep {
+  font-size: 26rpx;
+  color: var(--text-muted);
+}
+
+/* 成员 Chip 气泡 */
+.members-chips-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+  margin-bottom: 24rpx;
+}
+
+.member-chip {
+  display: flex;
+  align-items: center;
+  background-color: #F1F5F9;
+  padding: 12rpx 24rpx;
+  border-radius: var(--radius-full);
+  border: 1rpx solid #E2E8F0;
+}
+
+.member-chip.me {
+  background-color: var(--primary-light);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.member-chip.me .member-name {
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.member-name {
+  font-size: 26rpx;
+  color: var(--text-main);
+}
+
+.remove-btn {
+  margin-left: 12rpx;
+  font-size: 32rpx;
+  color: var(--text-muted);
+  line-height: 1;
+}
+
+.add-member-bar {
+  display: flex;
+  gap: 16rpx;
+}
+
+.add-member-input {
+  flex: 1;
+  height: 84rpx;
+  min-height: 84rpx;
+  line-height: 84rpx;
+  font-size: 26rpx;
+  background-color: #F8FAFC;
+  padding: 0 28rpx;
+  border-radius: var(--radius-full);
+  border: 1rpx solid #E2E8F0;
+  box-sizing: border-box;
+}
+
+.add-btn {
+  background: var(--primary);
+  color: #FFFFFF;
+  font-size: 26rpx;
+  font-weight: 600;
+  height: 84rpx;
+  line-height: 84rpx;
+  padding: 0 32rpx;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+/* 模板选择列表 */
+.templates-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+}
+
+.tpl-card {
+  display: flex;
+  align-items: center;
+  padding: 24rpx 20rpx;
+  border-radius: var(--radius-md);
+  border: 2rpx solid #E2E8F0;
+  background-color: #FFFFFF;
+  transition: all 0.2s ease;
+}
+
+.tpl-card.active {
+  border-color: var(--primary);
+  background-color: var(--primary-light);
+}
+
+.tpl-radio {
+  width: 36rpx;
+  height: 36rpx;
+  border-radius: 50%;
+  border: 2rpx solid #CBD5E1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 18rpx;
+}
+
+.tpl-card.active .tpl-radio {
+  border-color: var(--primary);
+}
+
+.radio-inner {
+  width: 20rpx;
+  height: 20rpx;
+  border-radius: 50%;
+  background-color: var(--primary);
+}
+
+.tpl-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.tpl-name {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 6rpx;
+}
+
+.tpl-desc {
+  font-size: 22rpx;
+  color: var(--text-muted);
+}
+
+/* 底部固定栏 */
+.bottom-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  padding: 20rpx 32rpx calc(24rpx + env(safe-area-inset-bottom));
+  border-top: 1rpx solid var(--border-light);
+  z-index: 100;
+}
+
+.submit-btn {
+  width: 100%;
+  height: 96rpx;
+  line-height: 96rpx;
+  border-radius: var(--radius-full);
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+  color: #FFFFFF;
+  font-size: 32rpx;
+  font-weight: 700;
+  box-shadow: var(--shadow-lg);
+}
+

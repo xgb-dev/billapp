@@ -1,0 +1,115 @@
+<view class="container">
+  <!-- 顶部状态信息 -->
+  <view class="header-card">
+    <view class="header-title">记一笔集体消费</view>
+    <view class="header-sub">{{trip.title}} · {{trip.destination || '旅行'}}</view>
+  </view>
+
+  <view class="form-container">
+    <!-- 金额卡片 -->
+    <view class="form-card amount-card">
+      <view class="label">消费金额 (元)</view>
+      <view class="amount-input-box">
+        <text class="currency">¥</text>
+        <input 
+          class="amount-input" 
+          type="digit" 
+          placeholder="0.00" 
+          placeholder-class="placeholder" 
+          value="{{amount}}" 
+          bindinput="onAmountInput" 
+          focus="{{true}}"
+        />
+      </view>
+      <view class="split-preview" wx:if="{{amount > 0}}">
+        <text class="split-icon">💡</text>
+        <text class="split-text">共 {{participants.length}} 人分摊，预计每人平摊 </text>
+        <text class="split-highlight">¥{{perPersonAmount}}</text>
+      </view>
+    </view>
+
+    <!-- 基础详情卡片 -->
+    <view class="form-card">
+      <view class="form-item">
+        <text class="form-label">消费项目</text>
+        <input 
+          class="form-input" 
+          placeholder="例如：晚餐聚餐、租车油费、门票" 
+          placeholder-class="placeholder" 
+          value="{{title}}" 
+          bindinput="onTitleInput" 
+        />
+      </view>
+
+      <view class="form-item">
+        <text class="form-label">消费日期</text>
+        <picker mode="date" value="{{date}}" bindchange="onDateChange">
+          <view class="picker-val">{{date}}</view>
+        </picker>
+      </view>
+    </view>
+
+    <!-- 付款人选择 -->
+    <view class="form-card">
+      <view class="section-head">
+        <text class="section-title">谁先垫付的？</text>
+        <text class="section-tip">单选垫付人</text>
+      </view>
+      <view class="pills-grid">
+        <view 
+          wx:for="{{trip.members}}" 
+          wx:key="*this" 
+          class="member-pill {{payer === item ? 'active' : ''}}" 
+          data-name="{{item}}" 
+          bindtap="selectPayer"
+        >
+          <text class="pill-name">{{item}}</text>
+          <text class="pill-check" wx:if="{{payer === item}}">✓</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 参与平摊人 -->
+    <view class="form-card">
+      <view class="section-head">
+        <view class="section-title-wrap">
+          <text class="section-title">谁参与了分摊？</text>
+          <text class="badge">{{participants.length}}/{{trip.members.length}}人</text>
+        </view>
+        <view class="action-link" bindtap="selectAllParticipants">全员参与</view>
+      </view>
+      <view class="pills-grid">
+        <view 
+          wx:for="{{trip.members}}" 
+          wx:key="*this" 
+          class="member-pill multi {{participants.indexOf(item) !== -1 ? 'active-multi' : ''}}" 
+          data-name="{{item}}" 
+          bindtap="toggleParticipant"
+        >
+          <view class="checkbox {{participants.indexOf(item) !== -1 ? 'checked' : ''}}"></view>
+          <text class="pill-name">{{item}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 备注信息 -->
+    <view class="form-card">
+      <view class="form-item border-none">
+        <text class="form-label">备注说明</text>
+        <input 
+          class="form-input" 
+          placeholder="选填（如：小张自费饮料除外）" 
+          placeholder-class="placeholder" 
+          value="{{remarks}}" 
+          bindinput="onRemarksInput" 
+        />
+      </view>
+    </view>
+
+    <!-- 提交按钮 -->
+    <view class="btn-wrap">
+      <button class="submit-btn" bindtap="submitExpense">记入小队账单</button>
+    </view>
+  </view>
+</view>
+

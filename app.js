@@ -17,10 +17,10 @@ App({
           resolve(cachedUserInfo.openid);
           return;
         }
-
         // 调用云函数或后端接口获取 openid
         auth.wxLogin()
           .then((data) => {
+            console.log(data)
             this.globalData.openid = data.userInfo.openid;
             this.globalData.userInfo = data.userInfo;
             resolve(data.userInfo.openid)

@@ -1,0 +1,112 @@
+<view class="container">
+  <!-- 基础信息卡片 -->
+  <view class="form-card">
+    <view class="card-title-row">
+      <text class="card-title">🏕️ 活动基础信息</text>
+    </view>
+
+    <!-- 活动名称 -->
+    <view class="form-item">
+      <text class="item-label">活动名称</text>
+      <input 
+        class="form-input" 
+        placeholder="例如：大理洱海自驾游、周末露营" 
+        placeholder-class="input-placeholder"
+        value="{{title}}"
+        bindinput="onTitleInput"
+      />
+    </view>
+
+    <view class="divider"></view>
+
+    <!-- 目的地 -->
+    <view class="form-item">
+      <text class="item-label">目的地</text>
+      <input 
+        class="form-input" 
+        placeholder="例如：云南大理、莫干山" 
+        placeholder-class="input-placeholder"
+        value="{{destination}}"
+        bindinput="onDestInput"
+      />
+    </view>
+
+    <view class="divider"></view>
+
+    <!-- 出行日期 -->
+    <view class="form-item">
+      <text class="item-label">出行日期</text>
+      <view class="date-pickers-wrap">
+        <picker mode="date" value="{{startDate}}" bindchange="onStartDateChange">
+          <view class="date-btn font-number">{{startDate}}</view>
+        </picker>
+        <text class="date-sep">至</text>
+        <picker mode="date" value="{{endDate}}" start="{{startDate}}" bindchange="onEndDateChange">
+          <view class="date-btn font-number">{{endDate}}</view>
+        </picker>
+      </view>
+    </view>
+  </view>
+
+  <!-- 成员管理卡片 -->
+  <view class="form-card">
+    <view class="card-title-row">
+      <text class="card-title">👥 小队同行成员</text>
+      <text class="card-tip">AA 结算将自动平摊到成员</text>
+    </view>
+
+    <view class="members-chips-wrap">
+      <block wx:for="{{members}}" wx:key="*this">
+        <view class="member-chip {{item === '我' ? 'me' : ''}}">
+          <text class="member-name">{{item}}</text>
+          <text class="remove-btn" wx:if="{{item !== '我'}}" catchtap="removeMember" data-index="{{index}}">×</text>
+        </view>
+      </block>
+    </view>
+
+    <!-- 添加成员输入栏 -->
+    <view class="add-member-bar">
+      <input 
+        class="add-member-input" 
+        placeholder="输入朋友名字/昵称" 
+        placeholder-class="input-placeholder"
+        value="{{newMemberName}}"
+        bindinput="onNewMemberInput"
+        bindconfirm="addMember"
+      />
+      <view class="add-btn touch-active" bindtap="addMember">+ 添加</view>
+    </view>
+  </view>
+
+  <!-- 初始清单模板卡片 -->
+  <view class="form-card">
+    <view class="card-title-row">
+      <text class="card-title">📋 初始行李装备清单</text>
+      <text class="card-tip">创建后可随时增删改</text>
+    </view>
+
+    <view class="templates-list">
+      <block wx:for="{{templates}}" wx:key="key">
+        <view 
+          class="tpl-card touch-active {{selectedTemplate === item.key ? 'active' : ''}}" 
+          bindtap="selectTemplate" 
+          data-key="{{item.key}}"
+        >
+          <view class="tpl-radio">
+            <view class="radio-inner" wx:if="{{selectedTemplate === item.key}}"></view>
+          </view>
+          <view class="tpl-info">
+            <text class="tpl-name">{{item.name}}</text>
+            <text class="tpl-desc">{{item.desc}}</text>
+          </view>
+        </view>
+      </block>
+    </view>
+  </view>
+
+  <!-- 底部固定创建按钮 -->
+  <view class="bottom-bar">
+    <button class="submit-btn touch-active" bindtap="submitCreate">立即开启旅行小队</button>
+  </view>
+</view>
+

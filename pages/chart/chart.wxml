@@ -1,0 +1,132 @@
+<view class="container">
+  <!-- 顶部月份切换胶囊 -->
+  <view class="month-bar">
+    <picker mode="date" fields="month" value="{{selectedMonth}}" start="2020-01" end="{{currentMonth}}" bindchange="onMonthChange">
+      <view class="month-capsule touch-active">
+        <text class="calendar-icon">📅</text>
+        <text class="month-text">{{selectedMonth}} 财务报表</text>
+        <text class="dropdown-arrow">▼</text>
+      </view>
+    </picker>
+  </view>
+
+  <!-- 四维财务概览卡片 -->
+  <view class="overview-card">
+    <view class="overview-top">
+      <text class="overview-label">本月总支出 (元)</text>
+      <text class="overview-main-amount font-number">¥{{totalExpense}}</text>
+    </view>
+    
+    <view class="overview-grid">
+      <view class="grid-item">
+        <text class="grid-label">本月总收入</text>
+        <text class="grid-val income font-number">+¥{{totalIncome}}</text>
+      </view>
+      <view class="grid-divider"></view>
+      <view class="grid-item">
+        <text class="grid-label">收支结余</text>
+        <text class="grid-val font-number">¥{{totalBalance}}</text>
+      </view>
+      <view class="grid-divider"></view>
+      <view class="grid-item">
+        <text class="grid-label">日均消费</text>
+        <text class="grid-val font-number">¥{{dailyAverage}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 消费结构环形占比图卡片 -->
+  <view class="chart-card" wx:if="{{hasExpense}}">
+    <view class="card-title-row">
+      <text class="card-title">支出结构占比</text>
+      <text class="card-subtitle">分类环形透视</text>
+    </view>
+
+    <!-- Canvas 环形图与中心悬浮文字 -->
+    <view class="donut-chart-container">
+      <canvas canvas-id="donutCanvas" class="donut-canvas"></canvas>
+      <view class="donut-center-info">
+        <text class="donut-center-label">总支出</text>
+        <text class="donut-center-val font-number">¥{{totalExpense}}</text>
+      </view>
+    </view>
+
+    <!-- 分类图例矩阵 -->
+    <view class="legend-grid">
+      <block wx:for="{{categoryList}}" wx:key="name">
+        <view class="legend-item" wx:if="{{index < 6}}">
+          <view class="legend-dot" style="background-color: {{item.color}};"></view>
+          <text class="legend-name">{{item.name}}</text>
+          <text class="legend-pct font-number">{{item.percent}}%</text>
+        </view>
+      </block>
+    </view>
+  </view>
+
+  <!-- 智能消费洞察卡片 -->
+  <view class="insights-card" wx:if="{{hasExpense && (insights.maxBill || insights.topCountCat)}}">
+    <view class="card-title-row">
+      <text class="card-title">💡 理财智能洞察</text>
+      <text class="card-subtitle">本月消费特征</text>
+    </view>
+
+    <view class="insights-list">
+      <!-- 单笔最大支出 -->
+      <view class="insight-item" wx:if="{{insights.maxBill}}">
+        <view class="insight-icon-box max-icon">🏆</view>
+        <view class="insight-info">
+          <text class="insight-title">单笔最大支出</text>
+          <text class="insight-desc">在「{{insights.maxBill.category}}」消费了 ¥{{insights.maxBill.amount}}（{{insights.maxBill.date}}）</text>
+        </view>
+      </view>
+
+      <!-- 最高频类别 -->
+      <view class="insight-item" wx:if="{{insights.topCountCat}}">
+        <view class="insight-icon-box freq-icon">🔥</view>
+        <view class="insight-info">
+          <text class="insight-title">消费最频繁类别</text>
+          <text class="insight-desc">「{{insights.topCountCat.name}}」本月共计记账 {{insights.topCountCat.count}} 笔</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 支出分类排行榜明细 -->
+  <view class="rankings-card" wx:if="{{hasExpense}}">
+    <view class="card-title-row">
+      <text class="card-title">支出排行榜</text>
+      <text class="card-subtitle">按金额从高到低</text>
+    </view>
+
+    <view class="rank-breakdown-list">
+      <block wx:for="{{categoryList}}" wx:key="name">
+        <view class="rank-row">
+          <view class="rank-index font-number {{index < 3 ? 'top' : ''}}">{{index + 1}}</view>
+          <view class="rank-cat-icon" style="background-color: {{item.color}}15; color: {{item.color}};">
+            <text class="iconfont icon-a-068_{{item.icon}}"></text>
+          </view>
+          <view class="rank-detail-main">
+            <view class="rank-line-1">
+              <view class="rank-name-wrap">
+                <text class="rank-cat-name">{{item.name}}</text>
+                <text class="rank-cat-count font-number">{{item.count}}笔</text>
+              </view>
+              <text class="rank-cat-amount font-number">¥{{item.total}}</text>
+            </view>
+            <view class="rank-bar-bg">
+              <view class="rank-bar-progress" style="width: {{item.percent}}%; background-color: {{item.color}};"></view>
+            </view>
+          </view>
+        </view>
+      </block>
+    </view>
+  </view>
+
+  <!-- 当月暂无支出空状态 -->
+  <view class="empty-chart-state" wx:if="{{!hasExpense}}">
+    <image src="/images/empty.png" class="empty-img" mode="aspectFit"></image>
+    <text class="empty-title">本月暂无支出数据</text>
+    <text class="empty-sub">切换月份或记几笔账单来看看统计报表吧</text>
+  </view>
+</view>
+

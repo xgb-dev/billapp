@@ -133,6 +133,38 @@ function createClient() {
         };
       }
     },
+    // 删除数据
+    async delete(table, filters = []) {
+      try {
+        if (filters.length === 0) {
+          throw new Error('删除操作必须提供筛选条件');
+        }
+        let url = `${this.url}/rest/v1/${table}?`;
+        filters.forEach((filter, index) => {
+          const { column, operator, value } = filter;
+          if (index > 0) url += '&';
+          url += `${column}=${operator}.${encodeURIComponent(value)}`;
+        });
+        const response = await wx.request({
+          url: url,
+          method: 'DELETE',
+          header: {
+            'apikey': this.key,
+            'Authorization': `Bearer ${this.key}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        return {
+          data: response.data,
+          error: null
+        };
+      } catch (error) {
+        return {
+          data: null,
+          error
+        };
+      }
+    },
     // 聚合查询（求和）
     async sum(table, column, filters = []) {
       try {

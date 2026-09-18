@@ -1,19 +1,63 @@
 const app = getApp();
 const supabase = require('../../utils/supabase.js');
+const { getTrips, syncTripsFromCloud, deleteTrip, joinTripByCode } = require('../../utils/tripData.js');
 const {income, expense, functional} = app.globalData.iconCategories;
 Page({
   data: {
     totalBalance: '0.00',
     monthIncome: '0.00',
     monthExpense: '0.00',
-    recentBills: []
+    recentBills: [],
+    loading: false,
+    isHideAmount: false,
+    monthlyBudget: 0,
+    hasBudget: false,
+    budgetRemaining: '0.00',
+    budgetPercent: 0,
+    budgetStatus: 'normal',
+    trips: [],
+    showJoinModal: false,
+    joinInputCode: '',
+    joinMemberName: ''
   },
 
   onLoad(options) {
+    const isHideAmount = wx.getStorageSync('isHideAmount') || false;
+    const monthlyBudget = parseFloat(wx.getStorageSync('monthlyBudget')) || 0;
+    this.setData({
+      isHideAmount,
+      monthlyBudget,
+      hasBudget: monthlyBudget > 0
+    });
+
+    // 如果通过分享卡片或链接进入，带入口令并自动打开加入弹窗
+    if (options && options.joinCode) {
+      this.setData({
+        showJoinModal: true,
+        joinInputCode: options.joinCode.toUpperCase()
+      });
+    }
+
     wx.showLoading({
       title: '加载中',
-    })
+    });
     this.loadWithOpenid();
+  },
+  onShow() {
+    // 加载旅行小队活动数据
+    this.loadTrips();
+
+    // 每次显示页面更新预算缓存设置
+    const monthlyBudget = parseFloat(wx.getStorageSync('monthlyBudget')) || 0;
+    if (monthlyBudget !== this.data.monthlyBudget) {
+      this.setData({
+        monthlyBudget,
+        hasBudget: monthlyBudget > 0
+      });
+      if (this.data.monthExpenseNum !== undefined) {
+        this.calculateBudget(this.data.monthExpenseNum);
+      }
+    }
   },
   onShareAppMessage(res) {
     return {
@@ -123,13 +167,16 @@ async loadWithOpenid() {
         return billItem;
       });
 
-      // 更新页面数据
+      // 保存当前开销数值并计算预算
       this.setData({
         totalBalance: totalBalance.toFixed(2),
         monthIncome: monthIncome.toFixed(2),
         monthExpense: monthExpense.toFixed(2),
+        monthExpenseNum: monthExpense,
         recentBills: recentBills,
         loading: false
+      }, () => {
+        this.calculateBudget(monthExpense);
       });
       
       wx.hideLoading();
@@ -141,6 +188,76 @@ async loadWithOpenid() {
       });
       this.setData({ loading: false });
     }
+  },
+
+  // 计算预算进度
+  calculateBudget(expenseAmount) {
+    const budget = this.data.monthlyBudget;
+    if (budget <= 0) {
+      this.setData({
+        hasBudget: false,
+        budgetRemaining: '0.00',
+        budgetPercent: 0,
+        budgetStatus: 'normal'
+      });
+      return;
+    }
+
+    const remaining = budget - expenseAmount;
+    const percent = Math.min(Math.round((expenseAmount / budget) * 100), 100);
+    let status = 'normal';
+    if (expenseAmount > budget) {
+      status = 'danger'; // 超支
+    } else if (percent >= 80) {
+      status = 'warning'; // 预警
+    }
+
+    this.setData({
+      hasBudget: true,
+      budgetRemaining: Math.abs(remaining).toFixed(2),
+      isOverBudget: remaining < 0,
+      budgetPercent: percent,
+      budgetStatus: status
+    });
+  },
+
+  // 切换金额隐藏与展示（小眼睛）
+  toggleHideAmount() {
+    const isHideAmount = !this.data.isHideAmount;
+    this.setData({
+      isHideAmount
+    });
+    wx.setStorageSync('isHideAmount', isHideAmount);
+  },
+
+  // 弹出设置/修改本月预算
+  setBudget() {
+    wx.showModal({
+      title: '设置本月预算',
+      editable: true,
+      placeholderText: '请输入每月预算金额（元）',
+      content: this.data.monthlyBudget > 0 ? String(this.data.monthlyBudget) : '',
+      success: (res) => {
+        if (res.confirm) {
+          const val = parseFloat(res.content ? res.content.trim() : '0') || 0;
+          if (val < 0) {
+            wx.showToast({ title: '预算不能为负数', icon: 'none' });
+            return;
+          }
+          wx.setStorageSync('monthlyBudget', val);
+          this.setData({
+            monthlyBudget: val,
+            hasBudget: val > 0
+          }, () => {
+            this.calculateBudget(this.data.monthExpenseNum || parseFloat(this.data.monthExpense) || 0);
+          });
+          wx.showToast({
+            title: val > 0 ? '预算设置成功' : '已清除预算',
+            icon: 'success'
+          });
+        }
+      }
+    });
   },
 
 
@@ -165,11 +282,125 @@ async loadWithOpenid() {
     });
   },
 
+  // 跳转到统计分析页面
+  goToChart() {
+    wx.navigateTo({
+      url: '/pages/chart/chart'
+    });
+  },
+
   // 查看账单详情
   viewBillDetail(e) {
     const billId = e.currentTarget.dataset.id;
     wx.navigateTo({
       url: `/pages/detail/detail?id=${billId}`
     });
+  },
+
+  // 加载旅行活动（本地优先秒开 + 云端静默同步）
+  async loadTrips() {
+    const localTrips = getTrips();
+    this.setData({ trips: localTrips });
+
+    try {
+      const cloudTrips = await syncTripsFromCloud();
+      if (cloudTrips && Array.isArray(cloudTrips)) {
+        this.setData({ trips: cloudTrips });
+      }
+    } catch (e) {
+      console.warn('Sync trips background warning:', e);
+    }
+  },
+
+  // 跳转旅行小队工作台
+  goToTripDetail(e) {
+    const tripId = e.currentTarget.dataset.id;
+    wx.navigateTo({
+      url: `/pages/trip/trip-detail?tripId=${tripId}`
+    });
+  },
+
+  // 新建旅行活动
+  goToTripCreate() {
+    wx.navigateTo({
+      url: '/pages/trip/trip-create'
+    });
+  },
+
+  // 首页卡片直接删除/解散行程
+  deleteTripFromHome(e) {
+    const { id, title } = e.currentTarget.dataset;
+    wx.showModal({
+      title: '解散旅行小队',
+      content: `确定要删除行程“${title || '该行程'}”吗？\n删除后该行程的所有数据将无法恢复。`,
+      confirmText: '确认删除',
+      confirmColor: '#EF4444',
+      cancelText: '取消',
+      success: (res) => {
+        if (res.confirm) {
+          deleteTrip(id);
+          this.loadTrips();
+          wx.showToast({ title: '行程已删除', icon: 'none' });
+        }
+      }
+    });
+  },
+
+  // 打开口令加入小队弹窗
+  openJoinModal() {
+    this.setData({
+      showJoinModal: true,
+      joinInputCode: '',
+      joinMemberName: ''
+    });
+  },
+
+  // 关闭口令加入弹窗
+  closeJoinModal() {
+    this.setData({ showJoinModal: false });
+  },
+
+  onJoinCodeInput(e) {
+    this.setData({
+      joinInputCode: (e.detail.value || '').toUpperCase()
+    });
+  },
+
+  onJoinNameInput(e) {
+    this.setData({
+      joinMemberName: e.detail.value || ''
+    });
+  },
+
+  // 确认口令加入小队
+  async confirmJoinTrip() {
+    const code = (this.data.joinInputCode || '').trim();
+    const name = (this.data.joinMemberName || '').trim();
+
+    if (!code) {
+      wx.showToast({ title: '请输入6位口令', icon: 'none' });
+      return;
+    }
+    if (!name) {
+      wx.showToast({ title: '请输入你的名字/昵称', icon: 'none' });
+      return;
+    }
+
+    wx.showLoading({ title: '正在加入小队...' });
+    const res = await joinTripByCode(code, name);
+    wx.hideLoading();
+
+    if (res.success) {
+      wx.showToast({ title: '成功加入小队！', icon: 'success' });
+      this.closeJoinModal();
+      this.loadTrips();
+      setTimeout(() => {
+        wx.navigateTo({
+          url: `/pages/trip/trip-detail?tripId=${res.trip.id}`
+        });
+      }, 600);
+    } else {
+      wx.showToast({ title: res.msg || '加入失败', icon: 'none' });
+    }
   }
 })

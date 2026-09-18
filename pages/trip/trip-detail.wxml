@@ -1,0 +1,435 @@
+<view class="container">
+  <!-- 顶部小队活动概览卡片 -->
+  <view class="trip-hero-card">
+    <view class="hero-top">
+      <view class="hero-meta-left">
+        <view class="hero-tag">旅行小队</view>
+        <view class="hero-dates" wx:if="{{trip.startDate}}">{{trip.startDate}} ~ {{trip.endDate}}</view>
+      </view>
+      <view class="hero-del-btn touch-active" bindtap="handleDeleteTrip" wx:if="{{isCreator}}">
+        <text class="del-icon">🗑️</text>
+        <text class="del-txt">解散行程</text>
+      </view>
+      <view class="hero-leave-btn touch-active" bindtap="handleLeaveTrip" wx:else>
+        <text class="leave-icon">🚪</text>
+        <text class="leave-txt">退出小队</text>
+      </view>
+    </view>
+    <view class="hero-title">{{trip.title}}</view>
+    <view class="hero-dest">📍 {{trip.destination || '目的地待定'}}</view>
+
+    <!-- 6 位加入口令与邀请栏 -->
+    <view class="invite-code-card" wx:if="{{trip.code}}">
+      <view class="code-left-wrap">
+        <text class="code-icon">🔑</text>
+        <text class="code-label">小队口令</text>
+        <text class="code-badge font-number">{{trip.code}}</text>
+      </view>
+      <view class="code-right-wrap">
+        <view class="code-btn copy-btn touch-active" bindtap="copyInviteCode">复制</view>
+        <button class="code-btn share-btn touch-active" open-type="share">微信邀请</button>
+      </view>
+    </view>
+
+    <!-- 成员小头像/标签列表 -->
+    <view class="members-bar">
+      <view class="members-label">小队成员 ({{trip.members.length}}人):</view>
+      <view class="members-tags">
+        <view class="member-tag" wx:for="{{trip.members}}" wx:key="*this">
+          {{item}}
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 3大核心模块 Tab 切换栏 -->
+  <view class="tab-nav">
+    <view 
+      class="tab-item {{currentTab === 'checklist' ? 'active' : ''}}" 
+      data-tab="checklist" 
+      bindtap="switchTab"
+    >
+      <text class="tab-icon">📋</text>
+      <text class="tab-text">旅行清单</text>
+      <text class="tab-count" wx:if="{{checklistProgress.total > 0}}">({{checklistProgress.checked}}/{{checklistProgress.total}})</text>
+    </view>
+
+    <view 
+      class="tab-item {{currentTab === 'aa' ? 'active' : ''}}" 
+      data-tab="aa" 
+      bindtap="switchTab"
+    >
+      <text class="tab-icon">💳</text>
+      <text class="tab-text">AA 结算</text>
+      <text class="tab-count" wx:if="{{trip.expenses.length > 0}}">({{trip.expenses.length}})</text>
+    </view>
+
+    <view 
+      class="tab-item {{currentTab === 'decision' ? 'active' : ''}}" 
+      data-tab="decision" 
+      bindtap="switchTab"
+    >
+      <text class="tab-icon">🎯</text>
+      <text class="tab-text">决策转盘</text>
+    </view>
+  </view>
+
+  <!-- ======================== TAB 1: 旅行清单 ======================== -->
+  <view class="tab-content" wx:if="{{currentTab === 'checklist'}}">
+    <!-- 清单准备进度看板 -->
+    <view class="progress-card">
+      <view class="progress-info">
+        <view class="progress-title">行前装备准备进度</view>
+        <view class="progress-ratio">{{checklistProgress.checked}} / {{checklistProgress.total}} 项</view>
+      </view>
+      <view class="progress-track">
+        <view class="progress-fill" style="width: {{checklistProgress.percent}}%;"></view>
+      </view>
+      <view class="progress-footer">
+        <text class="progress-pct">{{checklistProgress.percent}}% 完成</text>
+        <text class="progress-cheer">{{checklistProgress.percent === 100 ? '🎉 装备全部齐备，随时出发！' : '打包完成即可打勾确认'}}</text>
+      </view>
+    </view>
+
+    <!-- 分类横向滚动栏 -->
+    <scroll-view class="category-scroll" scroll-x="true">
+      <view 
+        wx:for="{{categories}}" 
+        wx:key="*this" 
+        class="cat-chip {{selectedCategoryFilter === item ? 'active' : ''}}" 
+        data-cat="{{item}}" 
+        bindtap="selectCategoryFilter"
+      >
+        {{item}}
+      </view>
+    </scroll-view>
+
+    <!-- 清单明细列表 -->
+    <view class="checklist-box">
+      <view 
+        wx:for="{{filteredChecklist}}" 
+        wx:key="id" 
+        class="check-item {{item.checked ? 'is-done' : ''}}"
+      >
+        <view class="check-box" data-id="{{item.id}}" bindtap="toggleChecklistItem">
+          <view class="custom-checkbox {{item.checked ? 'checked' : ''}}"></view>
+        </view>
+        <view class="item-body" data-id="{{item.id}}" bindtap="toggleChecklistItem">
+          <view class="item-title {{item.checked ? 'line-through' : ''}}">{{item.title}}</view>
+          <view class="item-meta">
+            <text class="item-cat">{{item.category}}</text>
+            <text class="item-assignee">👤 {{item.assignee || '所有人'}}</text>
+          </view>
+        </view>
+        <view class="del-btn" data-id="{{item.id}}" bindtap="deleteChecklistItem">✕</view>
+      </view>
+
+      <view class="empty-state" wx:if="{{filteredChecklist.length === 0}}">
+        <text class="empty-icon">🎒</text>
+        <text class="empty-text">该分类下还没有清单项</text>
+      </view>
+    </view>
+
+    <!-- 底部添加按钮 -->
+    <view class="fab-bar">
+      <button class="fab-btn" bindtap="openAddChecklist">➕ 添加自备 / 公用物品</button>
+    </view>
+  </view>
+
+  <!-- ======================== TAB 2: AA 结算 ======================== -->
+  <view class="tab-content" wx:if="{{currentTab === 'aa'}}">
+    <!-- 支出概览看板 -->
+    <view class="aa-summary-card">
+      <view class="summary-top">
+        <view>
+          <view class="sum-label">小队总支出</view>
+          <view class="sum-amount">¥{{settlement.totalExpense}}</view>
+        </view>
+        <view class="sum-stats">
+          <view class="stat-pill">{{trip.members.length}} 人同行</view>
+          <view class="stat-pill">{{trip.expenses.length}} 笔消费</view>
+        </view>
+      </view>
+      <view class="aa-actions">
+        <button class="action-btn btn-primary" bindtap="goToAddAA">➕ 记一笔集体消费</button>
+        <button class="action-btn btn-outline" bindtap="copySettlementText">📋 复制群对账单</button>
+      </view>
+    </view>
+
+    <!-- 极简清算结果（谁给谁转多少） -->
+    <view class="section-card">
+      <view class="card-head">
+        <view class="card-head-title">
+          <text class="head-icon">⚡</text>
+          <text>智能清算方案（最少转账路径）</text>
+        </view>
+      </view>
+
+      <view class="transfer-list" wx:if="{{settlement.transferPlans.length > 0}}">
+        <view class="transfer-card" wx:for="{{settlement.transferPlans}}" wx:key="index">
+          <view class="debtor-side">
+            <view class="avatar-circle red">{{item.from[0]}}</view>
+            <text class="member-name">{{item.from}}</text>
+          </view>
+          <view class="transfer-arrow-box">
+            <text class="transfer-arrow-amt">¥{{item.amount}}</text>
+            <view class="arrow-line">
+              <text class="arrow-pointer">👉</text>
+            </view>
+          </view>
+          <view class="creditor-side">
+            <view class="avatar-circle green">{{item.to[0]}}</view>
+            <text class="member-name">{{item.to}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="all-settled-box" wx:if="{{settlement.transferPlans.length === 0}}">
+        <text class="settled-icon">🎉</text>
+        <text class="settled-title">账目已全部平账结清！</text>
+        <text class="settled-sub">暂无任何未结转账需求</text>
+      </view>
+    </view>
+
+    <!-- 个人收支一览表 -->
+    <view class="section-card">
+      <view class="card-head">
+        <view class="card-head-title">
+          <text class="head-icon">👥</text>
+          <text>成员收支明细</text>
+        </view>
+      </view>
+      <view class="member-balance-list">
+        <view class="member-balance-row" wx:for="{{settlement.memberSummaries}}" wx:key="name">
+          <view class="m-left">
+            <view class="avatar-tiny">{{item.name[0]}}</view>
+            <text class="m-name">{{item.name}}</text>
+          </view>
+          <view class="m-middle">
+            <text class="m-sub">已付 ¥{{item.paid}} / 应摊 ¥{{item.owed}}</text>
+          </view>
+          <view class="m-right">
+            <view class="balance-tag {{item.isCreditor ? 'tag-green' : (item.isDebtor ? 'tag-red' : 'tag-gray')}}">
+              {{item.isCreditor ? ('应收 +¥' + item.balance) : (item.isDebtor ? ('应还 ¥' + item.balance) : '已结清')}}
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 消费流水列表 -->
+    <view class="section-card">
+      <view class="card-head">
+        <view class="card-head-title">
+          <text class="head-icon">🧾</text>
+          <text>小队消费明细流水 ({{trip.expenses.length}})</text>
+        </view>
+      </view>
+
+      <view class="expense-list" wx:if="{{trip.expenses.length > 0}}">
+        <view class="expense-card" wx:for="{{trip.expenses}}" wx:key="id">
+          <view class="exp-main">
+            <view class="exp-info">
+              <text class="exp-title">{{item.title}}</text>
+              <view class="exp-detail">
+                <text class="payer-badge">{{item.payer}} 先垫付</text>
+                <text class="parts-badge">{{item.participants.length}}人分摊</text>
+                <text class="exp-date">{{item.date}}</text>
+              </view>
+              <view class="exp-remark" wx:if="{{item.remarks}}">💬 {{item.remarks}}</view>
+            </view>
+            <view class="exp-cost">
+              <text class="exp-amt">¥{{item.amount}}</text>
+              <view class="del-link" data-id="{{item.id}}" bindtap="deleteExpense">删除</view>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view class="empty-state" wx:if="{{trip.expenses.length === 0}}">
+        <text class="empty-icon">📝</text>
+        <text class="empty-text">点击上方“记一笔集体消费”，开始清算吧！</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- ======================== TAB 3: 多人决策 & 随机转盘 ======================== -->
+  <view class="tab-content" wx:if="{{currentTab === 'decision'}}">
+    <!-- 主题选择横向胶囊 + 新建按钮 -->
+    <view class="decision-selector">
+      <scroll-view class="decision-scroll" scroll-x="true" enable-flex="true">
+        <view 
+          wx:for="{{trip.decisions}}" 
+          wx:key="id" 
+          class="decision-chip {{activeDecisionIndex === index ? 'active' : ''}}" 
+          data-index="{{index}}" 
+          bindtap="selectDecisionTab"
+        >
+          {{item.title}}
+        </view>
+        <view class="decision-chip add-chip" bindtap="openAddDecision">➕ 新建决策</view>
+      </scroll-view>
+    </view>
+
+    <!-- 当前决策卡片 -->
+    <view class="decision-main-card" wx:if="{{trip.decisions[activeDecisionIndex]}}">
+      <view class="decision-header">
+        <view class="dh-title">{{trip.decisions[activeDecisionIndex].title}}</view>
+        <view 
+          class="dh-del" 
+          data-index="{{activeDecisionIndex}}" 
+          bindtap="deleteDecision" 
+          wx:if="{{trip.decisions.length > 1}}"
+        >
+          删除主题
+        </view>
+      </view>
+
+      <!-- 选项投票展示列表 -->
+      <view class="options-container">
+        <view 
+          class="opt-row" 
+          wx:for="{{trip.decisions[activeDecisionIndex].options}}" 
+          wx:key="id"
+        >
+          <view class="opt-content">
+            <view class="opt-name">{{item.text}}</view>
+            <view class="opt-count">{{item.votes || 0}} 票</view>
+          </view>
+          <view class="opt-vote-btn" data-optid="{{item.id}}" bindtap="castVote">
+            👍 投TA一票
+          </view>
+        </view>
+      </view>
+
+      <!-- 治愈选择困难：命运大转盘抽签 -->
+      <view class="wheel-box">
+        <view class="wheel-title">🎲 治愈选择困难 · 命运随机抽签</view>
+        <view class="wheel-sub">大家各有偏好？让命运之轮帮你一秒决定！</view>
+
+        <view class="wheel-display {{isSpinning ? 'spinning' : ''}}">
+          <text class="wheel-text">{{wheelWinner || trip.decisions[activeDecisionIndex].options[0].text || '???'}}</text>
+        </view>
+
+        <button 
+          class="spin-btn" 
+          bindtap="spinWheel" 
+          loading="{{isSpinning}}" 
+          disabled="{{isSpinning}}"
+        >
+          {{isSpinning ? '正在命运抉择中...' : '🎲 立即随机决定'}}
+        </button>
+      </view>
+    </view>
+  </view>
+
+  <!-- ======================== 模态弹窗 1: 添加清单项 ======================== -->
+  <view class="modal-mask" wx:if="{{showAddChecklistModal}}">
+    <view class="modal-box">
+      <view class="modal-title">添加行李/待办物品</view>
+
+      <view class="modal-field">
+        <text class="modal-label">物品名称</text>
+        <input 
+          class="modal-input" 
+          placeholder="如：防蚊喷雾、冲锋衣、桌游牌" 
+          value="{{newChecklistTitle}}" 
+          bindinput="onNewChecklistTitleInput" 
+        />
+      </view>
+
+      <view class="modal-field">
+        <text class="modal-label">选择分类</text>
+        <view class="modal-chips">
+          <view 
+            wx:for="{{categories}}" 
+            wx:key="*this" 
+            wx:if="{{item !== '全部'}}"
+            class="modal-chip {{newChecklistCategory === item ? 'active' : ''}}" 
+            data-cat="{{item}}" 
+            bindtap="onNewChecklistCatSelect"
+          >
+            {{item}}
+          </view>
+        </view>
+      </view>
+
+      <view class="modal-field">
+        <text class="modal-label">携带人</text>
+        <view class="modal-chips">
+          <view 
+            class="modal-chip {{newChecklistAssignee === '所有人' ? 'active' : ''}}" 
+            data-member="所有人" 
+            bindtap="onNewChecklistAssigneeSelect"
+          >
+            所有人
+          </view>
+          <view 
+            wx:for="{{trip.members}}" 
+            wx:key="*this" 
+            class="modal-chip {{newChecklistAssignee === item ? 'active' : ''}}" 
+            data-member="{{item}}" 
+            bindtap="onNewChecklistAssigneeSelect"
+          >
+            {{item}}
+          </view>
+        </view>
+      </view>
+
+      <view class="modal-btns">
+        <button class="m-btn cancel" bindtap="closeAddChecklist">取消</button>
+        <button class="m-btn confirm" bindtap="confirmAddChecklistItem">确认添加</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- ======================== 模态弹窗 2: 新建决策主题 ======================== -->
+  <view class="modal-mask" wx:if="{{showAddDecisionModal}}">
+    <view class="modal-box">
+      <view class="modal-title">发起新决策 / 抽签</view>
+
+      <view class="modal-field">
+        <text class="modal-label">决策主题</text>
+        <input 
+          class="modal-input" 
+          placeholder="例如：明天晚餐吃什么？下个景点去哪？" 
+          value="{{newDecisionTitle}}" 
+          bindinput="onDecisionTitleInput" 
+        />
+      </view>
+
+      <view class="modal-field">
+        <text class="modal-label">候选选项 (至少2项)</text>
+        <view class="option-inputs">
+          <input 
+            wx:for="{{newDecisionOptions}}" 
+            wx:key="index" 
+            class="modal-input opt-inp" 
+            placeholder="选项 {{index + 1}}" 
+            value="{{item}}" 
+            data-index="{{index}}" 
+            bindinput="onDecisionOptionInput" 
+          />
+        </view>
+        <view class="add-opt-link" bindtap="addMoreOption">➕ 增加选项</view>
+      </view>
+
+      <view class="modal-btns">
+        <button class="m-btn cancel" bindtap="closeAddDecision">取消</button>
+        <button class="m-btn confirm" bindtap="confirmAddDecision">发起决策</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- ======================== 模态弹窗 3: 命运转盘胜利弹窗 ======================== -->
+  <view class="modal-mask" wx:if="{{showWinnerModal}}">
+    <view class="modal-box winner-box">
+      <view class="winner-trophy">🎉</view>
+      <view class="winner-title">命运之轮决定啦！</view>
+      <view class="winner-choice">{{wheelWinner}}</view>
+      <view class="winner-sub">不纠结了，立刻就选它！</view>
+      <button class="winner-confirm-btn" bindtap="closeWinnerModal">收到，就这么办！</button>
+    </view>
+  </view>
+</view>
+

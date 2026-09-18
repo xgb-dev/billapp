@@ -4,6 +4,7 @@ function wxLogin() {
     // 1. 获取登录凭证code
     wx.login({
       success: (loginRes) => {
+        console.log(loginRes)
         if (loginRes.code) {
           authWithServer(loginRes.code)
           .then(res => resolve(res))
