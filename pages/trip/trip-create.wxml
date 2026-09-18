@@ -57,9 +57,16 @@
 
     <view class="members-chips-wrap">
       <block wx:for="{{members}}" wx:key="*this">
-        <view class="member-chip {{item === '我' ? 'me' : ''}}">
+        <!-- 队长（第一位成员），可点击编辑名称，带队长徽章 -->
+        <view wx:if="{{index === 0}}" class="member-chip leader-chip touch-active" bindtap="openEditLeaderModal">
+          <text class="leader-badge">👑 队长</text>
           <text class="member-name">{{item}}</text>
-          <text class="remove-btn" wx:if="{{item !== '我'}}" catchtap="removeMember" data-index="{{index}}">×</text>
+          <text class="edit-icon">✎</text>
+        </view>
+        <!-- 普通成员，可点击移除 -->
+        <view wx:else class="member-chip">
+          <text class="member-name">{{item}}</text>
+          <text class="remove-btn" catchtap="removeMember" data-index="{{index}}">×</text>
         </view>
       </block>
     </view>
@@ -107,6 +114,28 @@
   <!-- 底部固定创建按钮 -->
   <view class="bottom-bar">
     <button class="submit-btn touch-active" bindtap="submitCreate">立即开启旅行小队</button>
+  </view>
+
+  <!-- 修改队长名称弹窗 -->
+  <view class="modal-mask" wx:if="{{showEditLeaderModal}}">
+    <view class="modal-box">
+      <view class="modal-title">👑 修改队长名称</view>
+      <view class="modal-sub">设置您在小队中的显示名字/昵称，方便大家对账</view>
+      <view class="modal-field">
+        <input 
+          class="modal-input" 
+          value="{{tempLeaderName}}" 
+          bindinput="onLeaderNameInput" 
+          placeholder="例如：阿强、老张（默认：队长）" 
+          maxlength="10" 
+          focus="{{showEditLeaderModal}}" 
+        />
+      </view>
+      <view class="modal-btns">
+        <button class="m-btn cancel touch-active" bindtap="closeEditLeaderModal">取消</button>
+        <button class="m-btn confirm touch-active" bindtap="confirmEditLeader">保存修改</button>
+      </view>
+    </view>
   </view>
 </view>
 

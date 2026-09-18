@@ -170,35 +170,99 @@
   <!-- 口令加入小队弹窗 -->
   <view class="modal-mask" wx:if="{{showJoinModal}}">
     <view class="modal-box">
-      <view class="modal-title">🔑 口令加入旅行小队</view>
-      <view class="modal-sub">输入队友分享给你的 6 位小队口令</view>
+      <!-- 步骤 1：输入口令并查询 -->
+      <block wx:if="{{!queriedTrip}}">
+        <view class="modal-title">🔑 口令加入旅行小队</view>
+        <view class="modal-sub">输入队友分享给你的 6 位小队口令</view>
 
-      <view class="modal-field">
-        <text class="modal-label">6位小队口令</text>
-        <input 
-          class="modal-input code-inp font-number" 
-          placeholder="如：K8P29M" 
-          maxlength="6"
-          value="{{joinInputCode}}" 
-          bindinput="onJoinCodeInput" 
-        />
-      </view>
+        <view class="modal-field">
+          <text class="modal-label">6位小队口令</text>
+          <input 
+            class="modal-input code-inp font-number" 
+            placeholder="如：K8P29M" 
+            maxlength="10"
+            value="{{joinInputCode}}" 
+            bindinput="onJoinCodeInput" 
+          />
+        </view>
 
-      <view class="modal-field">
-        <text class="modal-label">你的名字/昵称</text>
-        <input 
-          class="modal-input" 
-          placeholder="例如：阿强、小陈（方便AA对账）" 
-          maxlength="10"
-          value="{{joinMemberName}}" 
-          bindinput="onJoinNameInput" 
-        />
-      </view>
+        <view class="modal-btns">
+          <button class="m-btn cancel touch-active" bindtap="closeJoinModal">取消</button>
+          <button class="m-btn confirm touch-active" bindtap="queryTripByInputCode" loading="{{isQueryingCode}}">查询小队</button>
+        </view>
+      </block>
 
-      <view class="modal-btns">
-        <button class="m-btn cancel touch-active" bindtap="closeJoinModal">取消</button>
-        <button class="m-btn confirm touch-active" bindtap="confirmJoinTrip">立即加入</button>
-      </view>
+      <!-- 步骤 2：展示小队信息与成员名单，支持勾选自己或填写新名称 -->
+      <block wx:else>
+        <view class="modal-title">🧳 找到旅行小队</view>
+        
+        <!-- 小队信息卡片 -->
+        <view class="queried-trip-info">
+          <view class="q-trip-main">
+            <text class="q-trip-title">{{queriedTrip.title}}</text>
+            <text class="q-trip-meta">📍 {{queriedTrip.destination || '目的地待定'}} · 口令: {{queriedTrip.code}}</text>
+          </view>
+          <view class="q-trip-reset touch-active" bindtap="resetQueriedTrip">
+            <text>更换</text>
+          </view>
+        </view>
+
+        <view class="modal-field-group">
+          <view class="modal-label-row">
+            <text class="modal-label">请勾选你在小队中的名字：</text>
+          </view>
+          
+          <!-- 成员列表滚动区 -->
+          <scroll-view scroll-y class="member-claim-scroll">
+            <view class="member-claim-list">
+              <!-- 已有成员单选列表 -->
+              <view 
+                wx:for="{{queriedTrip.members}}" 
+                wx:key="*this"
+                class="member-claim-item {{selectedMemberName === item && !isNewMember ? 'selected' : ''}}"
+                bindtap="selectExistingMember"
+                data-name="{{item}}"
+              >
+                <view class="m-radio {{selectedMemberName === item && !isNewMember ? 'checked' : ''}}">
+                  <text class="m-radio-inner" wx:if="{{selectedMemberName === item && !isNewMember}}">✓</text>
+                </view>
+                <text class="m-name">{{item}}</text>
+                <text class="m-tag" wx:if="{{index === 0}}">队长</text>
+              </view>
+
+              <!-- 我是新成员（不在名单中） -->
+              <view 
+                class="member-claim-item new-member-item {{isNewMember ? 'selected' : ''}}"
+                bindtap="selectNewMemberOption"
+              >
+                <view class="m-radio {{isNewMember ? 'checked' : ''}}">
+                  <text class="m-radio-inner" wx:if="{{isNewMember}}">✓</text>
+                </view>
+                <text class="m-name">+ 我是新成员（填写新名字）</text>
+              </view>
+            </view>
+          </scroll-view>
+
+          <!-- 新成员输入框 -->
+          <view class="new-member-input-box" wx:if="{{isNewMember}}">
+            <input 
+              class="modal-input" 
+              placeholder="请输入你的姓名/昵称（方便AA对账）" 
+              maxlength="10"
+              value="{{joinMemberName}}" 
+              bindinput="onJoinNameInput" 
+              focus="{{isNewMember}}"
+            />
+          </view>
+        </view>
+
+        <view class="modal-btns">
+          <button class="m-btn cancel touch-active" bindtap="resetQueriedTrip">更换口令</button>
+          <button class="m-btn confirm touch-active" bindtap="confirmJoinTrip">
+            {{isNewMember ? '加入并进入' : (selectedMemberName ? '进入小队 (' + selectedMemberName + ')' : '请先勾选身份')}}
+          </button>
+        </view>
+      </block>
     </view>
   </view>
 

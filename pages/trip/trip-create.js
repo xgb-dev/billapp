@@ -6,8 +6,10 @@ Page({
     destination: '',
     startDate: '',
     endDate: '',
-    members: ['我'],
+    members: ['队长'],
     newMemberName: '',
+    showEditLeaderModal: false,
+    tempLeaderName: '',
     selectedTemplate: 'general',
     templates: [
       { key: 'general', name: '国内出行通用必备', desc: '含证件、衣物、药品洗漱、数码配件等 12 项必带清单' },
@@ -48,6 +50,39 @@ Page({
     this.setData({ newMemberName: e.detail.value });
   },
 
+  // 打开队长名称修改弹窗
+  openEditLeaderModal() {
+    this.setData({
+      showEditLeaderModal: true,
+      tempLeaderName: this.data.members[0] || '队长'
+    });
+  },
+
+  // 关闭队长名称修改弹窗
+  closeEditLeaderModal() {
+    this.setData({ showEditLeaderModal: false });
+  },
+
+  onLeaderNameInput(e) {
+    this.setData({ tempLeaderName: e.detail.value || '' });
+  },
+
+  // 确认修改队长名称
+  confirmEditLeader() {
+    const name = (this.data.tempLeaderName || '').trim() || '队长';
+    const list = [...this.data.members];
+    if (list.slice(1).includes(name)) {
+      wx.showToast({ title: '小队中已有同名队员', icon: 'none' });
+      return;
+    }
+    list[0] = name;
+    this.setData({
+      members: list,
+      showEditLeaderModal: false
+    });
+    wx.showToast({ title: '队长名称已修改', icon: 'success' });
+  },
+
   // 添加成员
   addMember() {
     const name = this.data.newMemberName.trim();
@@ -65,11 +100,11 @@ Page({
     });
   },
 
-  // 移除成员（“我”不可移除）
+  // 移除成员（队长不可移除，点击可修改名称）
   removeMember(e) {
     const idx = e.currentTarget.dataset.index;
-    if (this.data.members[idx] === '我') {
-      wx.showToast({ title: '本人不可移除', icon: 'none' });
+    if (idx === 0) {
+      this.openEditLeaderModal();
       return;
     }
     const list = [...this.data.members];

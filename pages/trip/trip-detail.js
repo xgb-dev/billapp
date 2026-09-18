@@ -1,4 +1,15 @@
-const { getTripById, updateTrip, deleteTrip, calculateAASettlement } = require('../../utils/tripData.js');
+const { 
+  getTripById, 
+  fetchTripByIdFromCloud,
+  updateTrip, 
+  deleteTrip, 
+  addMemberToTrip,
+  syncTripExpensesToPersonalBills,
+  calculateAASettlement,
+  toggleSettledTransfer,
+  settleAllTransfers,
+  resetAllTransfers
+} = require('../../utils/tripData.js');
 
 Page({
   data: {
@@ -15,6 +26,11 @@ Page({
     newChecklistTitle: '',
     newChecklistCategory: '出行必带',
     newChecklistAssignee: '所有人',
+
+    // 动态添加成员弹窗
+    showAddMemberModal: false,
+    newMemberInputName: '',
+    isSyncingBills: false,
 
     // AA 结算数据
     settlement: {
@@ -35,7 +51,7 @@ Page({
 
     // 用户身份角色
     isCreator: true,
-    myMemberName: '我'
+    myMemberName: '队长'
   },
 
   onLoad(options) {
@@ -57,16 +73,39 @@ Page({
     };
   },
 
-  // 加载活动全部数据与计算衍生状态
-  loadTripData() {
+  // 加载活动全部数据与计算衍生状态（支持云端拉取，避免口令进入时详情为空）
+  async loadTripData() {
     const tripId = this.data.tripId;
     if (!tripId) return;
 
-    const trip = getTripById(tripId);
-    if (!trip) {
-      wx.showToast({ title: '未找到该活动', icon: 'none' });
-      return;
+    // 1. 先尝试从本地读取秒开
+    let trip = getTripById(tripId);
+    if (trip) {
+      this.renderTripData(trip);
+    } else {
+      wx.showLoading({ title: '加载小队中...' });
     }
+
+    // 2. 无论本地是否存在，都请求云端拉取最新数据（确保口令跳转或他人记账时实时更新）
+    try {
+      const cloudTrip = await fetchTripByIdFromCloud(tripId);
+      if (!trip) wx.hideLoading();
+      if (cloudTrip) {
+        this.renderTripData(cloudTrip);
+      } else if (!trip) {
+        wx.showToast({ title: '未找到该小队信息', icon: 'none' });
+      }
+    } catch (e) {
+      if (!trip) {
+        wx.hideLoading();
+        wx.showToast({ title: '加载小队失败', icon: 'none' });
+      }
+    }
+  },
+
+  renderTripData(trip) {
+    const tripId = this.data.tripId;
+    if (!trip) return;
 
     // 确保口令存在
     if (!trip.code) {
@@ -78,8 +117,8 @@ Page({
     // 识别身份
     const myTripRoles = wx.getStorageSync('MY_TRIP_ROLES') || {};
     const myRoleInfo = myTripRoles[tripId];
-    const isCreator = !myRoleInfo || myRoleInfo.role === 'creator';
-    const myMemberName = myRoleInfo ? myRoleInfo.name : '我';
+    const isCreator = myRoleInfo ? (myRoleInfo.role === 'creator') : true;
+    const myMemberName = myRoleInfo ? myRoleInfo.name : ((trip.members && trip.members[0]) || '队长');
 
     // 1. 计算清单进度
     const checklist = trip.checklist || [];
@@ -87,8 +126,8 @@ Page({
     const checked = checklist.filter(item => item.checked).length;
     const percent = total > 0 ? Math.round((checked / total) * 100) : 0;
 
-    // 2. 计算 AA 结算结果
-    const settlement = calculateAASettlement(trip.members, trip.expenses);
+    // 2. 计算 AA 结算结果（含已结清转账状态）
+    const settlement = calculateAASettlement(trip.members, trip.expenses, trip.settledTransfers || []);
 
     // 3. 筛选当前清单
     const cat = this.data.selectedCategoryFilter;
@@ -425,39 +464,262 @@ Page({
     });
   },
 
-  // 复制 6 位专属小队口令文案
+  // 复制 6 位专属小队口令（仅复制纯6位代码，配合首页输入与自动解析）
   copyInviteCode() {
     const code = this.data.trip ? this.data.trip.code : '';
-    const title = this.data.trip ? this.data.trip.title : '旅行小分队';
-    const text = `【${title}】邀请你加入小队！\n🔑 6位加入口令：${code}\n打开小程序输入口令，即可一起打包装备清单、AA实时平账与命运抽签决策！`;
+    if (!code) return;
     wx.setClipboardData({
-      data: text,
+      data: code,
       success: () => {
-        wx.showToast({ title: '邀请口令已复制', icon: 'success' });
+        wx.showToast({ title: '口令已复制', icon: 'success' });
       }
     });
   },
 
-  // 队员主动退出小队
+
+  // 队员主动退出小队（含费用未结清安全校验）
   handleLeaveTrip() {
-    const title = this.data.trip ? this.data.trip.title : '该行程';
+    const trip = this.data.trip;
+    const title = trip ? trip.title : '该行程';
+    const myName = this.data.myMemberName;
+    const settlement = this.data.settlement || {};
+    const memberSummaries = settlement.memberSummaries || [];
+    
+    // 查找本人在结算单中的结余数据（balance = paid - owed）
+    const mySummary = memberSummaries.find(m => m.name === myName || m.rawName === myName);
+    const pendingDebt = mySummary ? parseFloat(mySummary.pendingDebt || 0) : 0;
+    const pendingCredit = mySummary ? parseFloat(mySummary.pendingCredit || 0) : 0;
+
+    // 校验 1：本人有未结清的待付金额（防逃单）
+    if (pendingDebt > 0.01) {
+      const debtAmt = pendingDebt.toFixed(2);
+      wx.showModal({
+        title: '暂无法退出小队',
+        content: `您在小队中仍有待分摊费用 ¥${debtAmt} 尚未结清。\n请向对应垫付队友转账后点击“标记已结”，即可完成平账并退出。`,
+        confirmText: '我知道了',
+        confirmColor: '#10B981',
+        showCancel: false
+      });
+      return;
+    }
+
+    // 校验 2：本人曾垫付过消费但尚未完全收回
+    if (pendingCredit > 0.01) {
+      const creditAmt = pendingCredit.toFixed(2);
+      wx.showModal({
+        title: '待收款提醒',
+        content: `您曾垫付过消费，目前仍有待收费用 ¥${creditAmt} 尚未收齐。\n如果此时退出小队，后续将无法在小队工作台核对账单。确定仍要退出吗？`,
+        confirmText: '仍要退出',
+        confirmColor: '#EF4444',
+        cancelText: '暂不退出',
+        success: (res) => {
+          if (res.confirm) {
+            this.doLeaveTrip();
+          }
+        }
+      });
+      return;
+    }
+
+    // 校验 3：参与过历史消费但已全部结清平账
+    const hasHistoryExpenses = (trip.expenses || []).some(
+      e => e.payer === myName || (e.participants && e.participants.includes(myName))
+    );
+
+    if (hasHistoryExpenses) {
+      wx.showModal({
+        title: '退出小队确认',
+        content: `您在“${title}”中的账目已全部结清平账。\n退出后，历史账单仍会保留过往消费记录，新发起的费用将不再由您分摊。确认退出吗？`,
+        confirmText: '确认退出',
+        confirmColor: '#EF4444',
+        cancelText: '取消',
+        success: (res) => {
+          if (res.confirm) {
+            this.doLeaveTrip();
+          }
+        }
+      });
+      return;
+    }
+
+    // 校验 4：未参与过任何费用，零账务干净退出
     wx.showModal({
       title: '退出小队',
-      content: `确定要退出“${title}”吗？`,
+      content: `确定要退出“${title}”小队吗？`,
       confirmText: '确认退出',
       confirmColor: '#EF4444',
       cancelText: '取消',
       success: (res) => {
         if (res.confirm) {
-          const { leaveTrip } = require('../../utils/tripData.js');
-          leaveTrip(this.data.tripId, this.data.myMemberName);
-          wx.showToast({ title: '已退出小队', icon: 'none' });
+          this.doLeaveTrip();
+        }
+      }
+    });
+  },
+
+  // 打开添加成员弹窗
+  openAddMemberModal() {
+    this.setData({
+      showAddMemberModal: true,
+      newMemberInputName: ''
+    });
+  },
+
+  // 关闭添加成员弹窗
+  closeAddMemberModal() {
+    this.setData({ showAddMemberModal: false });
+  },
+
+  onNewMemberInput(e) {
+    this.setData({ newMemberInputName: e.detail.value || '' });
+  },
+
+  // 确认添加成员
+  confirmAddMember() {
+    const name = (this.data.newMemberInputName || '').trim();
+    if (!name) {
+      wx.showToast({ title: '请输入队员姓名', icon: 'none' });
+      return;
+    }
+    const res = addMemberToTrip(this.data.tripId, name);
+    if (res.success) {
+      wx.showToast({ title: `成功添加队员 ${name}`, icon: 'success' });
+      this.setData({ showAddMemberModal: false });
+      this.loadTripData();
+    } else {
+      wx.showToast({ title: res.msg || '添加失败', icon: 'none' });
+    }
+  },
+
+  // 切换单个转账方案的结清/未结状态（权限控制：仅队长或收款人可标记）
+  toggleSettleTransfer(e) {
+    const planId = e.currentTarget.dataset.planid;
+    if (!planId) return;
+
+    const plans = (this.data.settlement && this.data.settlement.transferPlans) || [];
+    const plan = plans.find(p => p.id === planId);
+    if (!plan) return;
+
+    // 权限校验：仅队长或实际收款人可操作结清
+    const isReceiver = (plan.rawTo === this.data.myMemberName) || (plan.to === this.data.myMemberName);
+    if (!this.data.isCreator && !isReceiver) {
+      wx.showModal({
+        title: '仅队长或收款人可操作',
+        content: `该笔转账是由“${plan.from}”付给“${plan.to}”。\n为确保账务真实，仅小队队长或收款人 [${plan.to}] 可确认并标记结清。`,
+        showCancel: false,
+        confirmText: '我知道了',
+        confirmColor: '#10B981'
+      });
+      return;
+    }
+
+    const res = toggleSettledTransfer(this.data.tripId, planId, this.data.myMemberName);
+    if (res.success) {
+      wx.showToast({
+        title: res.isSettled ? '已标记结清' : '已撤销结清',
+        icon: 'success'
+      });
+      this.loadTripData();
+    }
+  },
+
+  // 一键全部标记结清（仅队长可操作）
+  handleSettleAllTransfers() {
+    if (!this.data.isCreator) {
+      wx.showToast({ title: '仅队长可执行一键全结', icon: 'none' });
+      return;
+    }
+
+    const plans = this.data.settlement ? this.data.settlement.transferPlans : [];
+    if (!plans || plans.length === 0) return;
+
+    wx.showModal({
+      title: '一键结清确认',
+      content: '确定将当前所有转账方案全部标记为已结清吗？',
+      confirmText: '全部结清',
+      confirmColor: '#10B981',
+      cancelText: '取消',
+      success: (res) => {
+        if (res.confirm) {
+          settleAllTransfers(this.data.tripId, plans, this.data.myMemberName);
+          wx.showToast({ title: '已全部标记结清', icon: 'success' });
+          this.loadTripData();
+
+          // 提示是否将花销同步到个人记账本
           setTimeout(() => {
-            wx.navigateBack({ delta: 1 });
+            wx.showModal({
+              title: '账单已平账结清 🎉',
+              content: '是否现在将本行程中属于您的花销记录同步到个人记账本中？',
+              confirmText: '立即同步',
+              confirmColor: '#10B981',
+              cancelText: '暂不同步',
+              success: (syncRes) => {
+                if (syncRes.confirm) {
+                  this.handleSyncToPersonalBills();
+                }
+              }
+            });
           }, 800);
         }
       }
     });
+  },
+
+  // 重置全部结清状态（仅队长可操作）
+  handleResetAllTransfers() {
+    if (!this.data.isCreator) {
+      wx.showToast({ title: '仅队长可重置结清状态', icon: 'none' });
+      return;
+    }
+
+    wx.showModal({
+      title: '重置结清状态',
+      content: '确定要将所有转账重新恢复为待结转账吗？',
+      confirmText: '确认重置',
+      confirmColor: '#EF4444',
+      cancelText: '取消',
+      success: (res) => {
+        if (res.confirm) {
+          resetAllTransfers(this.data.tripId);
+          wx.showToast({ title: '已重置结清状态', icon: 'none' });
+          this.loadTripData();
+        }
+      }
+    });
+  },
+
+  // 同步当前小队花销至个人账本 (wxapp 表)
+  async handleSyncToPersonalBills() {
+    const trip = this.data.trip;
+    if (!trip) return;
+
+    wx.showLoading({ title: '正在同步到个人账本...', mask: true });
+    this.setData({ isSyncingBills: true });
+    const res = await syncTripExpensesToPersonalBills(trip, this.data.myMemberName);
+    wx.hideLoading();
+    this.setData({ isSyncingBills: false });
+
+    if (res.success) {
+      wx.showModal({
+        title: '个人账单同步完成',
+        content: res.msg,
+        showCancel: false,
+        confirmText: '太棒了',
+        confirmColor: '#10B981'
+      });
+    } else {
+      wx.showToast({ title: res.msg || '同步失败', icon: 'none' });
+    }
+  },
+
+  // 执行退出逻辑
+  doLeaveTrip() {
+    const { leaveTrip } = require('../../utils/tripData.js');
+    leaveTrip(this.data.tripId, this.data.myMemberName);
+    wx.showToast({ title: '已退出小队', icon: 'success' });
+    setTimeout(() => {
+      wx.navigateBack({ delta: 1 });
+    }, 800);
   }
 });
 

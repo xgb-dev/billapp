@@ -18,6 +18,8 @@ page {
   color: #FFFFFF;
   box-shadow: 0 12rpx 32rpx rgba(15, 23, 42, 0.12);
   margin-bottom: 24rpx;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .hero-top {
@@ -105,15 +107,16 @@ page {
   background: rgba(255, 255, 255, 0.08);
   border: 1rpx dashed rgba(52, 211, 153, 0.4);
   border-radius: 20rpx;
-  padding: 16rpx 22rpx;
+  padding: 14rpx 18rpx;
   margin-bottom: 20rpx;
   box-sizing: border-box;
+  gap: 12rpx;
 }
 
 .code-left-wrap {
   display: flex;
   align-items: center;
-  gap: 12rpx;
+  gap: 10rpx;
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -131,11 +134,11 @@ page {
 }
 
 .code-badge {
-  font-size: 30rpx;
+  font-size: 28rpx;
   font-weight: 800;
   color: #34D399;
   background: rgba(16, 185, 129, 0.22);
-  padding: 4rpx 16rpx;
+  padding: 4rpx 14rpx;
   border-radius: 10rpx;
   letter-spacing: 2rpx;
   border: 1rpx solid rgba(52, 211, 153, 0.35);
@@ -146,24 +149,33 @@ page {
 .code-right-wrap {
   display: flex;
   align-items: center;
-  gap: 12rpx;
+  gap: 10rpx;
   white-space: nowrap;
   flex-shrink: 0;
 }
 
-.code-btn {
-  font-size: 22rpx;
-  font-weight: 600;
-  height: 52rpx;
-  line-height: 52rpx;
-  padding: 0 20rpx;
+.code-btn,
+button.code-btn,
+button.share-btn {
+  font-size: 22rpx !important;
+  font-weight: 600 !important;
+  height: 52rpx !important;
+  line-height: 52rpx !important;
+  padding: 0 18rpx !important;
   border-radius: 12rpx;
   margin: 0 !important;
   white-space: nowrap;
   box-sizing: border-box;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: auto !important;
+  min-height: 0 !important;
+}
+
+button.share-btn::after,
+button.code-btn::after {
+  border: none;
 }
 
 .copy-btn {
@@ -173,9 +185,9 @@ page {
 }
 
 .share-btn {
-  background: #10B981;
-  color: #FFFFFF;
-  border: none;
+  background: #10B981 !important;
+  color: #FFFFFF !important;
+  border: none !important;
 }
 
 .members-bar {
@@ -204,6 +216,27 @@ page {
   color: #F1F5F9;
   padding: 4rpx 14rpx;
   border-radius: 20rpx;
+  display: inline-flex;
+  align-items: center;
+  gap: 4rpx;
+}
+
+.member-tag.leader-tag {
+  background: rgba(245, 158, 11, 0.25);
+  color: #FDE68A;
+  border: 1rpx solid rgba(245, 158, 11, 0.4);
+  font-weight: 600;
+}
+
+.tag-role-icon {
+  font-size: 20rpx;
+}
+
+.member-tag.add-tag {
+  background: rgba(16, 185, 129, 0.2);
+  color: #6EE7B7;
+  border: 1rpx dashed rgba(52, 211, 153, 0.5);
+  font-weight: 600;
 }
 
 /* Tab 切换栏 */
@@ -466,16 +499,29 @@ page {
 
 .fab-bar {
   margin-top: 36rpx;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  box-sizing: border-box;
 }
 
-.fab-btn {
+.fab-btn,
+button.fab-btn {
   background: #FFFFFF;
   color: #10B981;
   border: 2rpx dashed #10B981;
   font-size: 28rpx;
   font-weight: 600;
   border-radius: 24rpx;
-  padding: 16rpx 0;
+  padding: 22rpx 0;
+  width: 100% !important;
+  margin: 0 auto !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center;
+  box-sizing: border-box;
 }
 
 /* ================= 2. AA 结算样式 ================= */
@@ -522,18 +568,32 @@ page {
   font-weight: 500;
 }
 
+.stat-pill.pill-success {
+  background: #ECFDF5;
+  color: #059669;
+  font-weight: 600;
+  border: 1rpx solid #A7F3D0;
+}
+
 .aa-actions {
   display: flex;
   gap: 16rpx;
 }
 
-.action-btn {
+.action-btn,
+button.action-btn {
   flex: 1;
   font-size: 26rpx;
   font-weight: 600;
   border-radius: 20rpx;
   padding: 18rpx 0;
   line-height: 1.4;
+  margin: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center;
+  box-sizing: border-box;
 }
 
 .btn-primary {
@@ -579,21 +639,81 @@ page {
   font-size: 28rpx;
 }
 
+.head-action-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.batch-settle-btn {
+  font-size: 22rpx;
+  font-weight: 600;
+  color: #059669;
+  background: #ECFDF5;
+  border: 1rpx solid #A7F3D0;
+  padding: 6rpx 18rpx;
+  border-radius: 20rpx;
+  line-height: 1.2;
+}
+
+.batch-settle-btn.outline {
+  color: #64748B;
+  background: #F1F5F9;
+  border: 1rpx solid #CBD5E1;
+}
+
+/* 全部结清横幅 */
+.all-done-banner {
+  background: linear-gradient(135deg, #ECFDF5, #D1FAE5);
+  border: 1rpx solid #A7F3D0;
+  border-radius: 18rpx;
+  padding: 16rpx 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10rpx;
+  margin-bottom: 20rpx;
+}
+
+.banner-icon {
+  font-size: 26rpx;
+}
+
+.banner-text {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #047857;
+}
+
 /* 转账方案卡片 */
 .transfer-list {
   display: flex;
   flex-direction: column;
-  gap: 14rpx;
+  gap: 16rpx;
 }
 
 .transfer-card {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
   background: #F8FAFC;
   border-radius: 20rpx;
-  padding: 18rpx 24rpx;
+  padding: 20rpx 24rpx 16rpx 24rpx;
   border: 1rpx solid #E2E8F0;
+  transition: all 0.2s ease;
+  gap: 16rpx;
+}
+
+.transfer-card.is-settled {
+  background: #F8FAFC;
+  border-color: #CBD5E1;
+  opacity: 0.82;
+}
+
+.transfer-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
 }
 
 .debtor-side, .creditor-side {
@@ -635,14 +755,64 @@ page {
 }
 
 .transfer-arrow-amt {
-  font-size: 26rpx;
-  font-weight: 700;
+  font-size: 28rpx;
+  font-weight: 800;
   color: #0F172A;
 }
 
+.transfer-arrow-amt.amt-settled {
+  text-decoration: line-through;
+  color: #94A3B8;
+  font-weight: 600;
+}
+
 .arrow-line {
-  font-size: 28rpx;
-  margin-top: -4rpx;
+  font-size: 26rpx;
+  margin-top: -2rpx;
+}
+
+/* 转账结清状态栏 */
+.transfer-status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1rpx dashed #E2E8F0;
+  padding-top: 14rpx;
+}
+
+.settled-time {
+  font-size: 22rpx;
+  color: #059669;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+}
+
+.pending-tip {
+  font-size: 22rpx;
+  color: #D97706;
+  font-weight: 500;
+}
+
+.settle-action-btn {
+  font-size: 22rpx;
+  font-weight: 600;
+  padding: 8rpx 22rpx;
+  border-radius: 30rpx;
+  line-height: 1.2;
+}
+
+.settle-action-btn.btn-do {
+  background: #ECFDF5;
+  color: #059669;
+  border: 1rpx solid #A7F3D0;
+}
+
+.settle-action-btn.btn-rev {
+  background: #F1F5F9;
+  color: #64748B;
+  border: 1rpx solid #CBD5E1;
 }
 
 .all-settled-box {
@@ -746,6 +916,12 @@ page {
   background: #F8FAFC;
   color: #94A3B8;
   border: 1rpx solid #E2E8F0;
+}
+
+.tag-settled {
+  background: #ECFDF5;
+  color: #059669;
+  border: 1rpx solid #A7F3D0;
 }
 
 /* 消费流水明细 */
@@ -978,15 +1154,23 @@ page {
   color: #10B981;
 }
 
-.spin-btn {
+.spin-btn,
+button.spin-btn {
   background: linear-gradient(135deg, #3B82F6, #2563EB);
   color: #FFFFFF;
   font-size: 28rpx;
   font-weight: 600;
   border-radius: 24rpx;
-  padding: 18rpx 0;
+  padding: 20rpx 0;
   border: none;
   box-shadow: 0 8rpx 20rpx rgba(37, 99, 235, 0.25);
+  width: 100% !important;
+  margin: 0 auto !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center;
+  box-sizing: border-box;
 }
 
 /* ================= 通用空状态 ================= */
@@ -1105,12 +1289,19 @@ page {
   margin-top: 32rpx;
 }
 
-.m-btn {
+.m-btn,
+button.m-btn {
   flex: 1;
   font-size: 28rpx;
   font-weight: 600;
   border-radius: 20rpx;
-  padding: 16rpx 0;
+  padding: 18rpx 0;
+  margin: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center;
+  box-sizing: border-box;
 }
 
 .m-btn.cancel {
@@ -1155,13 +1346,82 @@ page {
   margin-bottom: 32rpx;
 }
 
-.winner-confirm-btn {
+.winner-confirm-btn,
+button.winner-confirm-btn {
   background: linear-gradient(135deg, #10B981, #059669);
   color: #FFFFFF;
   font-size: 28rpx;
   font-weight: 600;
   border-radius: 20rpx;
-  padding: 18rpx 0;
+  padding: 20rpx 0;
   border: none;
+  width: 100% !important;
+  margin: 0 auto !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center;
+  box-sizing: border-box;
 }
+
+/* 同步到个人记账横幅卡片 */
+.sync-bills-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%);
+  border: 1rpx solid #6EE7B7;
+  border-radius: 20rpx;
+  padding: 20rpx 24rpx;
+  margin-top: 24rpx;
+  box-shadow: 0 4rpx 14rpx rgba(16, 185, 129, 0.08);
+}
+
+.sbc-left {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  flex: 1;
+  overflow: hidden;
+  margin-right: 16rpx;
+}
+
+.sbc-icon {
+  font-size: 40rpx;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.sbc-info {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sbc-title {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #065F46;
+  margin-bottom: 4rpx;
+}
+
+.sbc-desc {
+  font-size: 20rpx;
+  color: #047857;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sbc-btn {
+  background: #10B981;
+  color: #FFFFFF;
+  font-size: 22rpx;
+  font-weight: 700;
+  padding: 12rpx 22rpx;
+  border-radius: 14rpx;
+  white-space: nowrap;
+  box-shadow: 0 4rpx 10rpx rgba(16, 185, 129, 0.25);
+}
+
 

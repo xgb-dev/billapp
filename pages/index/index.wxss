@@ -889,7 +889,7 @@
   background: #FFFFFF;
   border-radius: 28rpx;
   width: 100%;
-  max-width: 600rpx;
+  max-width: 640rpx;
   padding: 40rpx 32rpx;
   box-sizing: border-box;
   box-shadow: 0 20rpx 40rpx rgba(15, 23, 42, 0.2);
@@ -969,4 +969,162 @@
 .m-btn.confirm {
   background: linear-gradient(135deg, #10B981 0%, #059669 100%);
   color: #FFFFFF;
+}
+
+/* 步骤 2：查询到小队后的预览与成员认领列表 */
+.queried-trip-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(135deg, #F0FDF4 0%, #ECFDF5 100%);
+  border: 1rpx solid #A7F3D0;
+  border-radius: 18rpx;
+  padding: 20rpx 24rpx;
+  margin-bottom: 24rpx;
+}
+
+.q-trip-main {
+  flex: 1;
+  overflow: hidden;
+  margin-right: 16rpx;
+}
+
+.q-trip-title {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #065F46;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4rpx;
+}
+
+.q-trip-meta {
+  display: block;
+  font-size: 22rpx;
+  color: #047857;
+}
+
+.q-trip-reset {
+  font-size: 22rpx;
+  font-weight: 600;
+  color: #059669;
+  background: #FFFFFF;
+  padding: 8rpx 16rpx;
+  border-radius: 12rpx;
+  border: 1rpx solid #6EE7B7;
+  white-space: nowrap;
+}
+
+.modal-field-group {
+  margin-bottom: 16rpx;
+}
+
+.modal-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12rpx;
+}
+
+.member-claim-scroll {
+  max-height: 380rpx;
+  border: 1rpx solid #E2E8F0;
+  border-radius: 18rpx;
+  background: #F8FAFC;
+  padding: 12rpx;
+  box-sizing: border-box;
+}
+
+.member-claim-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.member-claim-item {
+  display: flex;
+  align-items: center;
+  background: #FFFFFF;
+  border: 2rpx solid #E2E8F0;
+  border-radius: 14rpx;
+  padding: 16rpx 20rpx;
+  transition: all 0.2s ease;
+}
+
+.member-claim-item.selected {
+  border-color: #10B981;
+  background: #F0FDF4;
+}
+
+.member-claim-item.new-member-item {
+  border-style: dashed;
+  background: #FAFAFA;
+}
+
+.member-claim-item.new-member-item.selected {
+  border-style: solid;
+  border-color: #10B981;
+  background: #F0FDF4;
+}
+
+.m-radio {
+  width: 34rpx;
+  height: 34rpx;
+  border-radius: 50%;
+  border: 2rpx solid #CBD5E1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 16rpx;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.m-radio.checked {
+  background: #10B981;
+  border-color: #10B981;
+}
+
+.m-radio-inner {
+  color: #FFFFFF;
+  font-size: 22rpx;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.m-name {
+  flex: 1;
+  font-size: 28rpx;
+  font-weight: 500;
+  color: #1E293B;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.member-claim-item.selected .m-name {
+  color: #065F46;
+  font-weight: 700;
+}
+
+.m-tag {
+  font-size: 20rpx;
+  font-weight: 600;
+  color: #0284C7;
+  background: #E0F2FE;
+  padding: 2rpx 10rpx;
+  border-radius: 8rpx;
+  margin-left: 8rpx;
+}
+
+.new-member-input-box {
+  margin-top: 16rpx;
+  animation: fadeIn 0.25s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-8rpx); }
+  to { opacity: 1; transform: translateY(0); }
 }

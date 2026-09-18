@@ -1,6 +1,6 @@
 const app = getApp();
 const supabase = require('../../utils/supabase.js');
-const { getTrips, syncTripsFromCloud, deleteTrip, joinTripByCode } = require('../../utils/tripData.js');
+const { getTrips, syncTripsFromCloud, deleteTrip, joinTripByCode, queryTripByCode, claimTripMember, fetchTripByIdFromCloud } = require('../../utils/tripData.js');
 const {income, expense, functional} = app.globalData.iconCategories;
 Page({
   data: {
@@ -18,7 +18,11 @@ Page({
     trips: [],
     showJoinModal: false,
     joinInputCode: '',
-    joinMemberName: ''
+    joinMemberName: '',
+    queriedTrip: null,
+    selectedMemberName: '',
+    isNewMember: false,
+    isQueryingCode: false
   },
 
   onLoad(options) {
@@ -30,12 +34,11 @@ Page({
       hasBudget: monthlyBudget > 0
     });
 
-    // 如果通过分享卡片或链接进入，带入口令并自动打开加入弹窗
+    // 如果通过分享卡片或链接进入，带入口令并智能判断进入或认领
     if (options && options.joinCode) {
-      this.setData({
-        showJoinModal: true,
-        joinInputCode: options.joinCode.toUpperCase()
-      });
+      const joinCode = (options.joinCode || '').toUpperCase().trim();
+      this._lastHandledJoinCode = joinCode;
+      this.handleInviteCodeEntry(joinCode);
     }
 
     wx.showLoading({
@@ -46,6 +49,18 @@ Page({
   onShow() {
     // 加载旅行小队活动数据
     this.loadTrips();
+
+    // 检查微信后台唤醒时携带的邀请口令
+    try {
+      const enterOptions = (wx.getEnterOptionsSync && wx.getEnterOptionsSync()) || {};
+      if (enterOptions.query && enterOptions.query.joinCode) {
+        const joinCode = (enterOptions.query.joinCode || '').toUpperCase().trim();
+        if (joinCode && this._lastHandledJoinCode !== joinCode) {
+          this._lastHandledJoinCode = joinCode;
+          this.handleInviteCodeEntry(joinCode);
+        }
+      }
+    } catch (e) {}
 
     // 每次显示页面更新预算缓存设置
     const monthlyBudget = parseFloat(wx.getStorageSync('monthlyBudget')) || 0;
@@ -60,9 +75,16 @@ Page({
     }
   },
   onShareAppMessage(res) {
+    if (res && res.from === 'button' && res.target && res.target.dataset && res.target.dataset.code) {
+      const { code, title } = res.target.dataset;
+      return {
+        title: `邀请你加入【${title || '旅行小队'}】，口令：${code}`,
+        path: `/pages/index/index?joinCode=${code}`
+      };
+    }
     return {
-      title: '记账本', // 转发卡片标题
-      path: '/pages/index/index', // 转发后打开的页面路径
+      title: '极简记账与旅行小队',
+      path: '/pages/index/index',
     };
   },
 // 等待 openid 就绪
@@ -77,6 +99,8 @@ async loadWithOpenid() {
     }, () => {
       // 加载账本数据
       this.loadAccountData();
+      // 带着 openid 从云端精准恢复属于自己的小队（换机/删小程序自动找回）
+      this.loadTrips(openid);
     });
   } catch (error) {
     wx.showToast({
@@ -297,15 +321,16 @@ async loadWithOpenid() {
     });
   },
 
-  // 加载旅行活动（本地优先秒开 + 云端静默同步）
-  async loadTrips() {
+  // 加载旅行活动（本地优先秒开 + 带着 openid 云端静默同步与找回）
+  async loadTrips(userOpenid) {
+    const oid = userOpenid || this.data.userOpenid || '';
     const localTrips = getTrips();
-    this.setData({ trips: localTrips });
+    this.setData({ trips: (localTrips || []).filter(t => t && Number(t.trash || 0) !== 1) });
 
     try {
-      const cloudTrips = await syncTripsFromCloud();
+      const cloudTrips = await syncTripsFromCloud(oid);
       if (cloudTrips && Array.isArray(cloudTrips)) {
-        this.setData({ trips: cloudTrips });
+        this.setData({ trips: cloudTrips.filter(t => t && Number(t.trash || 0) !== 1) });
       }
     } catch (e) {
       console.warn('Sync trips background warning:', e);
@@ -351,18 +376,55 @@ async loadWithOpenid() {
     this.setData({
       showJoinModal: true,
       joinInputCode: '',
-      joinMemberName: ''
+      joinMemberName: '',
+      queriedTrip: null,
+      selectedMemberName: '',
+      isNewMember: false,
+      isQueryingCode: false
+    });
+
+    // 智能解析剪贴板：如果剪贴板中有 6 位口令，自动提取填入并查询
+    wx.getClipboardData({
+      success: (res) => {
+        const raw = (res.data || '').trim().toUpperCase();
+        const match = raw.match(/[A-Z0-9]{6}/);
+        if (match) {
+          this.setData({
+            joinInputCode: match[0]
+          });
+          this.queryTripByInputCode(match[0]);
+        }
+      },
+      fail: () => {}
     });
   },
 
   // 关闭口令加入弹窗
   closeJoinModal() {
-    this.setData({ showJoinModal: false });
+    this.setData({
+      showJoinModal: false,
+      queriedTrip: null,
+      selectedMemberName: '',
+      isNewMember: false,
+      joinMemberName: '',
+      isQueryingCode: false
+    });
   },
 
   onJoinCodeInput(e) {
+    let val = (e.detail.value || '').toUpperCase().trim();
+    // 兼容粘贴整段带其他字符的内容，自动提取6位有效口令
+    if (val.length > 6) {
+      const match = val.match(/[A-Z0-9]{6}/);
+      if (match) {
+        val = match[0];
+      }
+    }
     this.setData({
-      joinInputCode: (e.detail.value || '').toUpperCase()
+      joinInputCode: val,
+      queriedTrip: null,
+      selectedMemberName: '',
+      isNewMember: false
     });
   },
 
@@ -372,35 +434,242 @@ async loadWithOpenid() {
     });
   },
 
-  // 确认口令加入小队
-  async confirmJoinTrip() {
-    const code = (this.data.joinInputCode || '').trim();
-    const name = (this.data.joinMemberName || '').trim();
-
-    if (!code) {
-      wx.showToast({ title: '请输入6位口令', icon: 'none' });
-      return;
+  // 核心：处理通过微信邀请卡片/外链打开小程序时带入的口令
+  async handleInviteCodeEntry(specifiedCode) {
+    let code = (specifiedCode || '').trim().toUpperCase();
+    const match = code.match(/[A-Z0-9]{6}/);
+    if (match) {
+      code = match[0];
     }
-    if (!name) {
-      wx.showToast({ title: '请输入你的名字/昵称', icon: 'none' });
-      return;
+    if (!code || code.length < 6) return;
+
+    wx.showLoading({ title: '正在识别小队...' });
+
+    // 确保 openid 就绪
+    let openid = this.data.userOpenid || wx.getStorageSync('openid');
+    if (!openid && app && app.ensureOpenid) {
+      try {
+        openid = await app.ensureOpenid();
+        if (openid) {
+          this.setData({ userOpenid: openid });
+        }
+      } catch (e) {}
+    }
+    if (!openid) {
+      try {
+        openid = wx.getStorageSync('userInfo')?.openid || '';
+      } catch (e) {}
     }
 
-    wx.showLoading({ title: '正在加入小队...' });
-    const res = await joinTripByCode(code, name);
+    const res = await queryTripByCode(code);
     wx.hideLoading();
 
-    if (res.success) {
-      wx.showToast({ title: '成功加入小队！', icon: 'success' });
-      this.closeJoinModal();
-      this.loadTrips();
+    if (!res.success || !res.trip) {
+      wx.showToast({ title: res.msg || '未查到对应小队', icon: 'none' });
+      return;
+    }
+
+    const trip = res.trip;
+    const currentOid = openid || this.data.userOpenid || wx.getStorageSync('openid');
+    const myTripRoles = wx.getStorageSync('MY_TRIP_ROLES') || {};
+
+    // 关键比较：openid 匹配（创建者或已在成员 openid 列表中）或本地已有角色
+    const isCreator = Boolean(currentOid && trip._openid && trip._openid === currentOid);
+    const isJoinedMember = Boolean(currentOid && Array.isArray(trip.memberOpenids) && trip.memberOpenids.includes(currentOid));
+    const hasLocalRole = Boolean(myTripRoles[trip.id]);
+
+    if (isCreator || isJoinedMember || hasLocalRole) {
+      // 已经加入了，直接补齐本地映射并进入详情
+      if (!myTripRoles[trip.id]) {
+        myTripRoles[trip.id] = {
+          role: isCreator ? 'creator' : 'member',
+          name: isCreator ? ((trip.members && trip.members[0]) || '队长') : ((trip.members && trip.members[1]) || '队员')
+        };
+        try { wx.setStorageSync('MY_TRIP_ROLES', myTripRoles); } catch (e) {}
+      }
+
+      // 同步最新行程到本地缓存
+      await fetchTripByIdFromCloud(trip.id);
+      this.loadTrips(currentOid);
+
+      wx.showToast({ title: '欢迎归队！', icon: 'success' });
       setTimeout(() => {
         wx.navigateTo({
-          url: `/pages/trip/trip-detail?tripId=${res.trip.id}`
+          url: `/pages/trip/trip-detail?tripId=${trip.id}`
         });
-      }, 600);
+      }, 400);
+      return;
+    }
+
+    // 未加入：打开弹窗展示小队信息，供直接勾选对应名称加入或新加入
+    const members = trip.members || [];
+    this.setData({
+      showJoinModal: true,
+      joinInputCode: code,
+      queriedTrip: trip,
+      selectedMemberName: '',
+      isNewMember: members.length === 0,
+      joinMemberName: ''
+    });
+  },
+
+  // 查询口令对应的小队信息及成员
+  async queryTripByInputCode(specifiedCode) {
+    let code = typeof specifiedCode === 'string' ? specifiedCode : this.data.joinInputCode;
+    code = (code || '').trim().toUpperCase();
+    const match = code.match(/[A-Z0-9]{6}/);
+    if (match) {
+      code = match[0];
+    }
+
+    if (!code || code.length < 6) {
+      wx.showToast({ title: '请输入6位有效口令', icon: 'none' });
+      return;
+    }
+
+    this.setData({ isQueryingCode: true });
+    wx.showLoading({ title: '正在查询小队...' });
+
+    // 确保 openid 就绪
+    let openid = this.data.userOpenid || wx.getStorageSync('openid');
+    if (!openid && app && app.ensureOpenid) {
+      try {
+        openid = await app.ensureOpenid();
+        if (openid) {
+          this.setData({ userOpenid: openid });
+        }
+      } catch (e) {}
+    }
+
+    const res = await queryTripByCode(code);
+    wx.hideLoading();
+    this.setData({ isQueryingCode: false });
+
+    if (res.success && res.trip) {
+      const trip = res.trip;
+      const currentOid = openid || this.data.userOpenid || wx.getStorageSync('openid');
+      const myTripRoles = wx.getStorageSync('MY_TRIP_ROLES') || {};
+
+      // openid 比对判断是否已经加入
+      const isCreator = Boolean(currentOid && trip._openid && trip._openid === currentOid);
+      const isJoinedMember = Boolean(currentOid && Array.isArray(trip.memberOpenids) && trip.memberOpenids.includes(currentOid));
+      const hasLocalRole = Boolean(myTripRoles[trip.id]);
+
+      if (isCreator || isJoinedMember || hasLocalRole) {
+        this.closeJoinModal();
+        if (!myTripRoles[trip.id]) {
+          myTripRoles[trip.id] = {
+            role: isCreator ? 'creator' : 'member',
+            name: isCreator ? ((trip.members && trip.members[0]) || '队长') : ((trip.members && trip.members[1]) || '队员')
+          };
+          try { wx.setStorageSync('MY_TRIP_ROLES', myTripRoles); } catch (e) {}
+        }
+        await fetchTripByIdFromCloud(trip.id);
+        this.loadTrips(currentOid);
+
+        wx.showToast({ title: '已在小队中，直接进入', icon: 'success' });
+        setTimeout(() => {
+          wx.navigateTo({
+            url: `/pages/trip/trip-detail?tripId=${trip.id}`
+          });
+        }, 400);
+        return;
+      }
+
+      const members = trip.members || [];
+      this.setData({
+        queriedTrip: trip,
+        selectedMemberName: '',
+        isNewMember: members.length === 0,
+        joinMemberName: ''
+      });
     } else {
-      wx.showToast({ title: res.msg || '加入失败', icon: 'none' });
+      wx.showToast({ title: res.msg || '未查到对应小队', icon: 'none' });
+    }
+  },
+
+  // 选择已有成员认领身份
+  selectExistingMember(e) {
+    const name = e.currentTarget.dataset.name;
+    this.setData({
+      selectedMemberName: name,
+      isNewMember: false
+    });
+  },
+
+  // 选择作为新成员加入
+  selectNewMemberOption() {
+    this.setData({
+      selectedMemberName: '',
+      isNewMember: true
+    });
+  },
+
+  // 重置回到口令输入步骤
+  resetQueriedTrip() {
+    this.setData({
+      queriedTrip: null,
+      selectedMemberName: '',
+      isNewMember: false,
+      joinMemberName: ''
+    });
+  },
+
+  // 确认进入 / 加入小队
+  async confirmJoinTrip() {
+    const { queriedTrip, isNewMember, selectedMemberName, joinMemberName, joinInputCode } = this.data;
+
+    // 如果还没有查询小队，先触发查询
+    if (!queriedTrip) {
+      this.queryTripByInputCode();
+      return;
+    }
+
+    if (!isNewMember && !selectedMemberName) {
+      wx.showToast({ title: '请勾选你在小队中的名字', icon: 'none' });
+      return;
+    }
+
+    if (isNewMember) {
+      const name = (joinMemberName || '').trim();
+      if (!name) {
+        wx.showToast({ title: '请输入你的名字/昵称', icon: 'none' });
+        return;
+      }
+      wx.showLoading({ title: '正在加入小队...' });
+      const res = await joinTripByCode(queriedTrip.code || joinInputCode, name);
+      wx.hideLoading();
+
+      if (res.success) {
+        wx.showToast({ title: '成功加入小队！', icon: 'success' });
+        this.closeJoinModal();
+        this.loadTrips();
+        setTimeout(() => {
+          wx.navigateTo({
+            url: `/pages/trip/trip-detail?tripId=${res.trip.id}`
+          });
+        }, 500);
+      } else {
+        wx.showToast({ title: res.msg || '加入失败', icon: 'none' });
+      }
+    } else {
+      // 认领已有成员身份进入
+      wx.showLoading({ title: '正在进入小队...' });
+      const res = await claimTripMember(queriedTrip.id, selectedMemberName);
+      wx.hideLoading();
+
+      if (res.success) {
+        wx.showToast({ title: `欢迎，${selectedMemberName}！`, icon: 'success' });
+        this.closeJoinModal();
+        this.loadTrips();
+        setTimeout(() => {
+          wx.navigateTo({
+            url: `/pages/trip/trip-detail?tripId=${res.trip.id}`
+          });
+        }, 500);
+      } else {
+        wx.showToast({ title: res.msg || '进入失败', icon: 'none' });
+      }
     }
   }
 })
