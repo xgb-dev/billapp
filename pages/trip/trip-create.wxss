@@ -255,33 +255,10 @@
   box-shadow: var(--shadow-lg);
 }
 
-/* 队长专属气泡样式 */
-.member-chip.leader-chip {
-  background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
-  border-color: #F59E0B;
-  box-shadow: 0 4rpx 10rpx rgba(245, 158, 11, 0.15);
-  cursor: pointer;
-}
-
-.leader-badge {
-  font-size: 20rpx;
-  font-weight: 700;
-  color: #B45309;
-  background: rgba(255, 255, 255, 0.8);
-  padding: 2rpx 10rpx;
-  border-radius: 8rpx;
-  margin-right: 8rpx;
-}
-
-.leader-chip .member-name {
-  color: #92400E;
-  font-weight: 700;
-}
-
 .edit-icon {
   margin-left: 8rpx;
-  font-size: 24rpx;
-  color: #D97706;
+  font-size: 22rpx;
+  color: #94A3B8;
 }
 
 /* 弹窗样式 */

@@ -8,25 +8,23 @@ Page({
     endDate: '',
     members: ['队长'],
     newMemberName: '',
-    showEditLeaderModal: false,
-    tempLeaderName: '',
+    showEditMemberModal: false,
+    editingMemberIndex: -1,
+    tempMemberName: '',
     selectedTemplate: 'general',
     templates: [
-      { key: 'general', name: '国内出行通用必备', desc: '含证件、衣物、药品洗漱、数码配件等 12 项必带清单' },
-      { key: 'camping', name: '户外露营装备清单', desc: '含帐篷天幕、炊事锅具、防蚊照明等 9 项露营清单' }
+      { key: 'general', name: '通用旅行', desc: '证件、洗漱用品、换洗衣物、电子设备等核心基础必备项' },
+      { key: 'outdoor', name: '户外露营', desc: '帐篷睡袋、野炊锅具、手电急救、防虫防潮装备' },
+      { key: 'business', name: '商务出差', desc: '正装衬衫、电脑移动电源、发票证件、名片文具' }
     ]
   },
 
-  onLoad(options) {
-    const today = new Date();
-    const y = today.getFullYear();
-    const m = (today.getMonth() + 1).toString().padStart(2, '0');
-    const d = today.getDate().toString().padStart(2, '0');
-    const dateStr = `${y}-${m}-${d}`;
-
+  onLoad() {
+    const today = new Date().toISOString().slice(0, 10);
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
     this.setData({
-      startDate: dateStr,
-      endDate: dateStr
+      startDate: today,
+      endDate: tomorrow
     });
   },
 
@@ -50,37 +48,52 @@ Page({
     this.setData({ newMemberName: e.detail.value });
   },
 
-  // 打开队长名称修改弹窗
-  openEditLeaderModal() {
+  // 打开成员名称修改弹窗
+  openEditMemberModal(e) {
+    const { index, name } = e.currentTarget.dataset;
     this.setData({
-      showEditLeaderModal: true,
-      tempLeaderName: this.data.members[0] || '队长'
+      showEditMemberModal: true,
+      editingMemberIndex: Number(index),
+      tempMemberName: name || ''
     });
   },
 
-  // 关闭队长名称修改弹窗
-  closeEditLeaderModal() {
-    this.setData({ showEditLeaderModal: false });
+  // 关闭成员名称修改弹窗
+  closeEditMemberModal() {
+    this.setData({
+      showEditMemberModal: false,
+      editingMemberIndex: -1,
+      tempMemberName: ''
+    });
   },
 
-  onLeaderNameInput(e) {
-    this.setData({ tempLeaderName: e.detail.value || '' });
+  onMemberNameInput(e) {
+    this.setData({ tempMemberName: e.detail.value || '' });
   },
 
-  // 确认修改队长名称
-  confirmEditLeader() {
-    const name = (this.data.tempLeaderName || '').trim() || '队长';
+  // 确认修改成员名称
+  confirmEditMember() {
+    const idx = this.data.editingMemberIndex;
+    let name = (this.data.tempMemberName || '').trim();
+    if (!name) {
+      if (idx === 0) {
+        name = '队长';
+      } else {
+        wx.showToast({ title: '请输入成员姓名', icon: 'none' });
+        return;
+      }
+    }
     const list = [...this.data.members];
-    if (list.slice(1).includes(name)) {
+    if (list.filter((m, i) => i !== idx).includes(name)) {
       wx.showToast({ title: '小队中已有同名队员', icon: 'none' });
       return;
     }
-    list[0] = name;
+    list[idx] = name;
     this.setData({
       members: list,
-      showEditLeaderModal: false
+      showEditMemberModal: false
     });
-    wx.showToast({ title: '队长名称已修改', icon: 'success' });
+    wx.showToast({ title: '名称已修改', icon: 'success' });
   },
 
   // 添加成员
@@ -117,29 +130,36 @@ Page({
     this.setData({ selectedTemplate: e.currentTarget.dataset.key });
   },
 
-  // 提交创建
-  submitCreate() {
+  // 提交创建（写入 Supabase 云端数据库后进入详情页）
+  async submitCreate() {
     const { title, destination, startDate, endDate, members, selectedTemplate } = this.data;
     if (!title.trim()) {
       wx.showToast({ title: '请填写活动名称', icon: 'none' });
       return;
     }
 
-    const newTrip = createTrip({
-      title: title.trim(),
-      destination: destination.trim() || '随性游',
-      startDate,
-      endDate,
-      members,
-      template: selectedTemplate
-    });
-
-    wx.showToast({ title: '创建成功', icon: 'success' });
-    setTimeout(() => {
-      wx.redirectTo({
-        url: `/pages/trip/trip-detail?id=${newTrip.id}`
+    wx.showLoading({ title: '正在创建小队...', mask: true });
+    try {
+      const newTrip = await createTrip({
+        title: title.trim(),
+        destination: destination.trim() || '随性游',
+        startDate,
+        endDate,
+        members,
+        template: selectedTemplate
       });
-    }, 1000);
+
+      wx.hideLoading();
+      wx.showToast({ title: '创建成功', icon: 'success' });
+      setTimeout(() => {
+        wx.redirectTo({
+          url: `/pages/trip/trip-detail?tripId=${newTrip.id}`
+        });
+      }, 500);
+    } catch (e) {
+      wx.hideLoading();
+      wx.showToast({ title: '创建失败，请重试', icon: 'none' });
+    }
   }
 });
 

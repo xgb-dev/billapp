@@ -3,16 +3,30 @@
   <view class="trip-hero-card">
     <view class="hero-top">
       <view class="hero-meta-left">
-        <view class="hero-tag">旅行小队</view>
+        <view class="hero-tag {{tripStatus === 'finished' ? 'tag-finished' : ''}}">
+          {{tripStatus === 'finished' ? '已结束' : '旅行小队'}}
+        </view>
+        <view class="hero-status-sub {{settlementInfo.isAllSettled ? 'status-green' : 'status-amber'}}" wx:if="{{tripStatus === 'finished'}}">
+          {{settlementInfo.isAllSettled ? '已平账' : '待平账'}}
+        </view>
         <view class="hero-dates" wx:if="{{trip.startDate}}">{{trip.startDate}} ~ {{trip.endDate}}</view>
       </view>
-      <view class="hero-del-btn touch-active" bindtap="handleDeleteTrip" wx:if="{{isCreator}}">
-        <text class="del-icon">🗑️</text>
-        <text class="del-txt">解散行程</text>
-      </view>
-      <view class="hero-leave-btn touch-active" bindtap="handleLeaveTrip" wx:else>
-        <text class="leave-icon">🚪</text>
-        <text class="leave-txt">退出小队</text>
+      <view class="hero-actions-right">
+        <!-- 结束/重启行程按钮（队长可用） -->
+        <view class="hero-sub-btn touch-active" bindtap="handleFinishTrip" wx:if="{{isCreator && tripStatus === 'ongoing'}}">
+          <text class="sub-btn-txt">结束行程</text>
+        </view>
+        <view class="hero-sub-btn reopen touch-active" bindtap="handleReopenTrip" wx:if="{{isCreator && tripStatus === 'finished'}}">
+          <text class="sub-btn-txt">重新开启</text>
+        </view>
+        <view class="hero-del-btn touch-active" bindtap="handleDeleteTrip" wx:if="{{isCreator}}">
+          <text class="del-icon">🗑️</text>
+          <text class="del-txt">解散</text>
+        </view>
+        <view class="hero-leave-btn touch-active" bindtap="handleLeaveTrip" wx:else>
+          <text class="leave-icon">🚪</text>
+          <text class="leave-txt">退出</text>
+        </view>
       </view>
     </view>
     <view class="hero-title">{{trip.title}}</view>
@@ -35,15 +49,36 @@
     <view class="members-bar">
       <view class="members-label">小队成员 ({{trip.members.length}}人):</view>
       <view class="members-tags">
-        <view class="member-tag {{index === 0 ? 'leader-tag' : ''}}" wx:for="{{trip.members}}" wx:key="*this">
-          <text class="tag-role-icon" wx:if="{{index === 0}}">👑</text>
+        <view 
+          class="member-tag {{item === myMemberName ? 'me-tag' : ''}} touch-active" 
+          wx:for="{{trip.members}}" 
+          wx:key="*this"
+          bindtap="openEditMemberNameModal"
+          data-name="{{item}}"
+          data-index="{{index}}"
+        >
           <text>{{item}}</text>
+          <text class="me-tag-badge" wx:if="{{item === myMemberName}}">我</text>
+        </view>
+        <!-- 已退出小队的成员标签 -->
+        <view class="member-tag left-member-tag" wx:for="{{trip.leftMembers}}" wx:key="name">
+          <text>{{item.name}}</text>
+          <text class="left-tag-sub">已退队</text>
         </view>
         <!-- 详情页动态追加成员入口 -->
         <view class="member-tag add-tag touch-active" bindtap="openAddMemberModal">
           <text>+ 添加</text>
         </view>
       </view>
+    </view>
+  </view>
+
+  <!-- 历史已结束行程提示条 -->
+  <view class="finished-trip-banner" wx:if="{{tripStatus === 'finished'}}">
+    <text class="ftb-icon">ℹ️</text>
+    <view class="ftb-content">
+      <text class="ftb-title">此行程已归档至历史记录</text>
+      <text class="ftb-desc">{{settlementInfo.isAllSettled ? '账单已全部平账结清，随时可回顾查账。' : '尚有 ' + settlementInfo.pendingCount + ' 笔待结清转账（¥' + settlementInfo.pendingAmount + '），仍可正常结算。'}}</text>
     </view>
   </view>
 
@@ -195,41 +230,34 @@
         <text class="banner-text">所有转账方案均已确认结清！</text>
       </view>
 
-      <view class="transfer-list" wx:if="{{settlement.transferPlans.length > 0}}">
-        <view class="transfer-card {{item.isSettled ? 'is-settled' : ''}}" wx:for="{{settlement.transferPlans}}" wx:key="id">
-          <view class="transfer-main">
-            <view class="debtor-side">
-              <view class="avatar-circle red">{{item.from[0]}}</view>
-              <text class="member-name">{{item.from}}</text>
+      <view class="transfer-compact-list" wx:if="{{settlement.transferPlans.length > 0}}">
+        <view class="tc-item {{item.isSettled ? 'settled' : ''}}" wx:for="{{settlement.transferPlans}}" wx:key="id">
+          <!-- 转账两端 -->
+          <view class="tc-route">
+            <view class="tc-person from">
+              <view class="tc-dot red"></view>
+              <text class="tc-name">{{item.from}}</text>
             </view>
-            <view class="transfer-arrow-box">
-              <text class="transfer-arrow-amt {{item.isSettled ? 'amt-settled' : ''}}">¥{{item.amount}}</text>
-              <view class="arrow-line">
-                <text class="arrow-pointer">👉</text>
-              </view>
-            </view>
-            <view class="creditor-side">
-              <view class="avatar-circle green">{{item.to[0]}}</view>
-              <text class="member-name">{{item.to}}</text>
+            <text class="tc-arrow">转给</text>
+            <view class="tc-person to">
+              <view class="tc-dot green"></view>
+              <text class="tc-name">{{item.to}}</text>
             </view>
           </view>
 
-          <!-- 结清状态与操作栏 -->
-          <view class="transfer-status-bar">
-            <view class="settled-time" wx:if="{{item.isSettled}}">
-              <text class="time-txt">✓ {{item.settledAt ? item.settledAt + ' ' : ''}}已结清</text>
-            </view>
-            <view class="pending-tip" wx:else>
-              <text class="tip-txt">⏳ 待转账</text>
-            </view>
+          <!-- 转账金额 -->
+          <view class="tc-amt {{item.isSettled ? 'amt-settled' : ''}}">
+            <text class="tc-yen">¥</text>
+            <text class="tc-val font-number">{{item.amount}}</text>
+          </view>
 
-            <view 
-              class="settle-action-btn {{item.isSettled ? 'btn-rev' : 'btn-do'}} touch-active" 
-              data-planid="{{item.id}}" 
-              bindtap="toggleSettleTransfer"
-            >
-              {{item.isSettled ? '撤销' : '标记已结'}}
-            </view>
+          <!-- 操作按钮 -->
+          <view 
+            class="tc-btn {{item.isSettled ? 'btn-rev' : 'btn-do'}} touch-active" 
+            data-planid="{{item.id}}" 
+            bindtap="toggleSettleTransfer"
+          >
+            <text class="tc-btn-text">{{item.isSettled ? '✓ 已结' : '标记已结'}}</text>
           </view>
         </view>
       </view>
@@ -292,7 +320,10 @@
         <view class="expense-card" wx:for="{{trip.expenses}}" wx:key="id">
           <view class="exp-main">
             <view class="exp-info">
-              <text class="exp-title">{{item.title}}</text>
+              <view class="exp-title-row">
+                <text class="iconfont icon-a-068_{{item.icon}} exp-cat-icon" wx:if="{{item.icon}}"></text>
+                <text class="exp-title">{{item.title}}</text>
+              </view>
               <view class="exp-detail">
                 <text class="payer-badge">{{item.payer}} 先垫付</text>
                 <text class="parts-badge">{{item.participants.length}}人分摊</text>
@@ -336,12 +367,15 @@
     <!-- 当前决策卡片 -->
     <view class="decision-main-card" wx:if="{{trip.decisions[activeDecisionIndex]}}">
       <view class="decision-header">
-        <view class="dh-title">{{trip.decisions[activeDecisionIndex].title}}</view>
+        <view class="dh-title-wrap">
+          <text class="dh-title">{{trip.decisions[activeDecisionIndex].title}}</text>
+          <text class="preset-badge" wx:if="{{trip.decisions[activeDecisionIndex].isPreset}}">通用模板</text>
+        </view>
         <view 
           class="dh-del" 
           data-index="{{activeDecisionIndex}}" 
           bindtap="deleteDecision" 
-          wx:if="{{trip.decisions.length > 1}}"
+          wx:if="{{!trip.decisions[activeDecisionIndex].isPreset && trip.decisions.length > 1}}"
         >
           删除主题
         </view>
@@ -350,18 +384,33 @@
       <!-- 选项投票展示列表 -->
       <view class="options-container">
         <view 
-          class="opt-row" 
+          class="opt-row {{trip.decisions[activeDecisionIndex].voters && trip.decisions[activeDecisionIndex].voters[myMemberName] === item.id ? 'my-voted' : ''}}" 
           wx:for="{{trip.decisions[activeDecisionIndex].options}}" 
           wx:key="id"
         >
           <view class="opt-content">
-            <view class="opt-name">{{item.text}}</view>
+            <view class="opt-name-wrap">
+              <text class="opt-name">{{item.text}}</text>
+              <text class="my-voted-tag" wx:if="{{trip.decisions[activeDecisionIndex].voters && trip.decisions[activeDecisionIndex].voters[myMemberName] === item.id}}">我已投</text>
+            </view>
             <view class="opt-count">{{item.votes || 0}} 票</view>
           </view>
-          <view class="opt-vote-btn" data-optid="{{item.id}}" bindtap="castVote">
-            👍 投TA一票
+          <view 
+            class="opt-vote-btn {{trip.decisions[activeDecisionIndex].voters && trip.decisions[activeDecisionIndex].voters[myMemberName] === item.id ? 'voted' : ''}} touch-active" 
+            data-optid="{{item.id}}" 
+            bindtap="castVote"
+          >
+            {{trip.decisions[activeDecisionIndex].voters && trip.decisions[activeDecisionIndex].voters[myMemberName] === item.id ? '✓ 已投此项' : '👍 投TA一票'}}
           </view>
         </view>
+      </view>
+
+      <!-- 转发微信群邀请快捷投票按钮 -->
+      <view class="share-vote-box">
+        <button class="share-vote-btn touch-active" open-type="share" data-type="decision">
+          <text class="share-icon">🗳️</text>
+          <text class="share-text">转发到微信群 · 邀请队员快捷投票</text>
+        </button>
       </view>
 
       <!-- 治愈选择困难：命运大转盘抽签 -->
@@ -501,6 +550,28 @@
       <view class="modal-btns">
         <button class="m-btn cancel touch-active" bindtap="closeAddMemberModal">取消</button>
         <button class="m-btn confirm touch-active" bindtap="confirmAddMember">确认添加</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- ======================== 模态弹窗 5: 修改成员名称弹窗 ======================== -->
+  <view class="modal-mask" wx:if="{{showEditMemberModal}}">
+    <view class="modal-box">
+      <view class="modal-title">✏️ 修改成员名称</view>
+      <view class="modal-sub">修改后将同步更新该成员在账单与待办中的名称</view>
+      <view class="modal-field">
+        <input 
+          class="modal-input" 
+          value="{{editingMemberNewName}}" 
+          bindinput="onEditingMemberInput" 
+          placeholder="请输入新的成员名字" 
+          maxlength="10" 
+          focus="{{showEditMemberModal}}" 
+        />
+      </view>
+      <view class="modal-btns">
+        <button class="m-btn cancel touch-active" bindtap="closeEditMemberModal">取消</button>
+        <button class="m-btn confirm touch-active" bindtap="confirmEditMemberName">保存修改</button>
       </view>
     </view>
   </view>

@@ -1,0 +1,108 @@
+<view class="container">
+  <!-- 顶部分类筛选 Tab -->
+  <view class="tab-header">
+    <view 
+      class="tab-btn {{activeTab === 'history' ? 'active' : ''}} touch-active" 
+      data-tab="history" 
+      bindtap="switchTab"
+    >
+      <text class="tab-text">历史行程</text>
+      <text class="tab-badge font-number">({{historyTrips.length}})</text>
+    </view>
+    <view 
+      class="tab-btn {{activeTab === 'ongoing' ? 'active' : ''}} touch-active" 
+      data-tab="ongoing" 
+      bindtap="switchTab"
+    >
+      <text class="tab-text">进行中</text>
+      <text class="tab-badge font-number">({{ongoingTrips.length}})</text>
+    </view>
+    <view 
+      class="tab-btn {{activeTab === 'all' ? 'active' : ''}} touch-active" 
+      data-tab="all" 
+      bindtap="switchTab"
+    >
+      <text class="tab-text">全部</text>
+      <text class="tab-badge font-number">({{trips.length}})</text>
+    </view>
+  </view>
+
+  <!-- 行程列表区 -->
+  <view class="trip-list-body">
+    <!-- 当前选择的数据集 -->
+    <block wx:for="{{displayTrips}}" wx:key="id">
+      <view class="trip-card touch-active" bindtap="goToTripDetail" data-id="{{item.id}}">
+        <!-- 头部标题与状态 -->
+        <view class="tc-top">
+          <view class="tc-title-wrap">
+            <text class="tc-title">{{item.title}}</text>
+            <view class="tc-status-tag tag-ongoing" wx:if="{{item.computedStatus === 'ongoing'}}">
+              <text class="dot">●</text> 进行中
+            </view>
+            <view class="tc-status-tag tag-settled" wx:elif="{{item.settlementInfo.isAllSettled}}">
+              <text class="dot">✓</text> 已完结 · 已平账
+            </view>
+            <view class="tc-status-tag tag-unsettled" wx:else>
+              <text class="dot">⏳</text> 已结束 · 待平账
+            </view>
+          </view>
+          <view class="tc-dest">📍 {{item.destination || '目的地待定'}}</view>
+          <view class="tc-dates" wx:if="{{item.startDate}}">🗓️ {{item.startDate}} ~ {{item.endDate}}</view>
+        </view>
+
+        <!-- 汇总数据徽标 -->
+        <view class="tc-chips">
+          <view class="chip-item">
+            <text class="chip-icon">👥</text>
+            <text class="chip-text">{{item.members.length}}人小队</text>
+          </view>
+          <view class="chip-item">
+            <text class="chip-icon">💳</text>
+            <text class="chip-text">花销 ¥{{item.settlementInfo.totalExpense}} ({{item.expenses.length}}笔)</text>
+          </view>
+          <view class="chip-item {{item.settlementInfo.isAllSettled ? 'chip-green' : 'chip-amber'}}">
+            <text class="chip-icon">{{item.settlementInfo.isAllSettled ? '🎉' : '⚠️'}}</text>
+            <text class="chip-text" wx:if="{{item.settlementInfo.isAllSettled}}">账单已全部结清</text>
+            <text class="chip-text" wx:else>{{item.settlementInfo.pendingCount}}笔待平账 (¥{{item.settlementInfo.pendingAmount}})</text>
+          </view>
+        </view>
+
+        <!-- 底部快捷操作与口令 -->
+        <view class="tc-footer">
+          <view class="tc-code font-number" wx:if="{{item.code}}">
+            <text class="code-label">口令:</text>
+            <text class="code-val">{{item.code}}</text>
+          </view>
+          <view class="tc-actions">
+            <view class="tc-del-btn touch-active" catchtap="handleDeleteTrip" data-id="{{item.id}}" data-title="{{item.title}}">
+              <text>解散</text>
+            </view>
+            <view class="tc-enter-btn">
+              <text>{{item.computedStatus === 'finished' ? '查账回顾 ›' : '进入详情 ›'}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </block>
+
+    <!-- 空数据状态 -->
+    <view class="empty-wrap" wx:if="{{displayTrips.length === 0}}">
+      <view class="empty-icon">🧳</view>
+      <view class="empty-title">暂无相关行程记录</view>
+      <view class="empty-desc" wx:if="{{activeTab === 'history'}}">暂无已完结归档的历史行程</view>
+      <view class="empty-desc" wx:elif="{{activeTab === 'ongoing'}}">当前没有进行中的行程</view>
+      <view class="empty-desc" wx:else>您尚未加入或创建任何旅行小队</view>
+      <view class="empty-btn touch-active" bindtap="goToTripCreate">
+        <text>+ 发起新行程</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 底部悬浮发起按钮 -->
+  <view class="bottom-bar">
+    <view class="create-btn touch-active" bindtap="goToTripCreate">
+      <text class="create-btn-icon">✈️</text>
+      <text class="create-btn-txt">+ 发起新的旅行小队</text>
+    </view>
+  </view>
+</view>

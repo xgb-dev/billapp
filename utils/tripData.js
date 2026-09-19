@@ -17,7 +17,11 @@ function getUserOpenid(fallbackOid) {
 
 // utils/tripData.js - 旅行小队工作台数据管理与结算算法
 
-const STORAGE_KEY = 'TRIP_ACTIVITIES_V1';
+// 彻底废弃本地行程持久化缓存，直接以 Supabase 云端数据库为单一可信源
+try {
+  wx.removeStorageSync('TRIP_ACTIVITIES_V1');
+} catch (e) {}
+
 
 // 预置常用旅行清单模板
 const CHECKLIST_TEMPLATES = {
@@ -54,18 +58,72 @@ const CHECKLIST_TEMPLATES = {
   }
 };
 
-// 预设默认决策模板（供选择困难症快速发起）
+// 预设通用决策模板（供选择困难症快速发起，通用不删除）
 const DEFAULT_DECISIONS = [
   {
-    id: 'd1',
+    id: 'd_eat',
     title: '今晚吃什么？',
-    type: 'vote', // vote 或 wheel
+    type: 'vote',
+    isPreset: true,
     options: [
-      { id: 'o1', text: '当地特色美食', votes: 1 },
-      { id: 'o2', text: '地道火锅/烤肉', votes: 2 },
-      { id: 'o3', text: '轻食/简餐小吃', votes: 0 }
+      { id: 'o_eat_1', text: '当地特色地道菜', votes: 0 },
+      { id: 'o_eat_2', text: '热气腾腾火锅/烤肉', votes: 0 },
+      { id: 'o_eat_3', text: '夜市小吃街/大排档', votes: 0 },
+      { id: 'o_eat_4', text: '轻松简餐/披萨汉堡', votes: 0 }
     ],
-    voters: { '队长': 'o2' }
+    voters: {}
+  },
+  {
+    id: 'd_traffic',
+    title: '出行交通怎么选？',
+    type: 'vote',
+    isPreset: true,
+    options: [
+      { id: 'o_tr_1', text: '网约车/打车同行', votes: 0 },
+      { id: 'o_tr_2', text: '地铁/公交低碳游', votes: 0 },
+      { id: 'o_tr_3', text: '租车自驾兜风', votes: 0 },
+      { id: 'o_tr_4', text: '骑行/Citywalk漫步', votes: 0 }
+    ],
+    voters: {}
+  },
+  {
+    id: 'd_play',
+    title: '下午去哪儿玩？',
+    type: 'vote',
+    isPreset: true,
+    options: [
+      { id: 'o_pl_1', text: '核心必去景区打卡', votes: 0 },
+      { id: 'o_pl_2', text: '博物馆/艺术展览', votes: 0 },
+      { id: 'o_pl_3', text: '咖啡厅/茶室惬意闲聊', votes: 0 },
+      { id: 'o_pl_4', text: '城市公园/自然景区放空', votes: 0 }
+    ],
+    voters: {}
+  },
+  {
+    id: 'd_tea',
+    title: '今天谁请喝奶茶？',
+    type: 'wheel',
+    isPreset: true,
+    options: [
+      { id: 'o_tea_1', text: '剪刀石头布输家', votes: 0 },
+      { id: 'o_tea_2', text: '今天最晚起床的人', votes: 0 },
+      { id: 'o_tea_3', text: '队长霸气买单', votes: 0 },
+      { id: 'o_tea_4', text: '摇骰子点数最小者', votes: 0 }
+    ],
+    voters: {}
+  },
+  {
+    id: 'd_fun',
+    title: '晚上聚会玩什么？',
+    type: 'vote',
+    isPreset: true,
+    options: [
+      { id: 'o_fun_1', text: '剧本杀 / 狼人杀', votes: 0 },
+      { id: 'o_fun_2', text: '桌游纸牌 / 掼蛋', votes: 0 },
+      { id: 'o_fun_3', text: 'KTV / 音乐清吧', votes: 0 },
+      { id: 'o_fun_4', text: '夜景观光 / 散步吹风', votes: 0 }
+    ],
+    voters: {}
   }
 ];
 
@@ -96,6 +154,35 @@ function mapRowToTrip(row) {
   }
   decisions = decisions.filter(d => d && d.id !== '__sys_settlements__');
 
+  // 解析已退出成员记录
+  let leftMembers = [];
+  const sysLeft = decisions.find(d => d && d.id === '__sys_left_members__');
+  if (sysLeft && Array.isArray(sysLeft.leftMembers)) {
+    leftMembers = sysLeft.leftMembers;
+  }
+  decisions = decisions.filter(d => d && d.id !== '__sys_left_members__');
+
+  // 解析行程状态元数据
+  let tripStatus = 'ongoing';
+  let finishedAt = '';
+  const sysMeta = decisions.find(d => d && d.id === '__sys_trip_meta__');
+  if (sysMeta) {
+    if (sysMeta.status) tripStatus = sysMeta.status;
+    if (sysMeta.finishedAt) finishedAt = sysMeta.finishedAt;
+  }
+  decisions = decisions.filter(d => d && d.id !== '__sys_trip_meta__');
+
+  // 确保通用预设决策存在且不丢失
+  if (!Array.isArray(decisions) || decisions.length === 0) {
+    decisions = JSON.parse(JSON.stringify(DEFAULT_DECISIONS));
+  } else {
+    DEFAULT_DECISIONS.forEach(preset => {
+      if (!decisions.some(d => d.id === preset.id || d.title === preset.title)) {
+        decisions.push(JSON.parse(JSON.stringify(preset)));
+      }
+    });
+  }
+
   let memberOpenids = [];
   if (Array.isArray(row.member_openids)) {
     memberOpenids = row.member_openids;
@@ -116,16 +203,21 @@ function mapRowToTrip(row) {
     startDate: row.start_date || row.startDate || '',
     endDate: row.end_date || row.endDate || '',
     members: Array.isArray(row.members) && row.members.length ? row.members : (typeof row.members === 'string' ? JSON.parse(row.members) : ['队长']),
+    leftMembers: leftMembers,
     checklist: Array.isArray(row.checklist) ? row.checklist : (typeof row.checklist === 'string' ? JSON.parse(row.checklist) : []),
     expenses: Array.isArray(row.expenses) ? row.expenses : (typeof row.expenses === 'string' ? JSON.parse(row.expenses) : []),
     decisions: decisions,
     settledTransfers: settledTransfers,
+    status: tripStatus,
+    finishedAt: finishedAt,
     createdAt: row.created_at || row.createdAt || new Date().toISOString()
   };
 }
 
-function mapTripToRow(trip) {
+function mapTripToRow(trip, isExiting = false) {
   const decisions = Array.isArray(trip.decisions) ? [...trip.decisions] : [];
+  
+  // 结清记录节点
   const sysIdx = decisions.findIndex(d => d && d.id === '__sys_settlements__');
   const settlementItem = {
     id: '__sys_settlements__',
@@ -138,10 +230,45 @@ function mapTripToRow(trip) {
     decisions.push(settlementItem);
   }
 
+  // 已退出成员记录节点
+  const leftIdx = decisions.findIndex(d => d && d.id === '__sys_left_members__');
+  const leftItem = {
+    id: '__sys_left_members__',
+    type: 'system',
+    leftMembers: trip.leftMembers || []
+  };
+  if (leftIdx !== -1) {
+    decisions[leftIdx] = leftItem;
+  } else {
+    decisions.push(leftItem);
+  }
+
+  // 行程元数据节点（持久化行程生命周期状态与结束时间）
+  const metaIdx = decisions.findIndex(d => d && d.id === '__sys_trip_meta__');
+  const metaItem = {
+    id: '__sys_trip_meta__',
+    type: 'system',
+    status: trip.status || 'ongoing',
+    finishedAt: trip.finishedAt || ''
+  };
+  if (metaIdx !== -1) {
+    decisions[metaIdx] = metaItem;
+  } else {
+    decisions.push(metaItem);
+  }
+
   const myOid = getUserOpenid();
   let memberOpenids = Array.isArray(trip.memberOpenids) ? [...trip.memberOpenids] : [];
-  if (myOid && !memberOpenids.includes(myOid)) {
-    memberOpenids.push(myOid);
+
+  if (isExiting && myOid) {
+    // 退出小队：明确从云端 member_openids 剔除当前用户的 openid
+    memberOpenids = memberOpenids.filter(oid => oid !== myOid);
+  } else if (myOid && !memberOpenids.includes(myOid)) {
+    // 只有在未退出的情况下才将自己的 openid 加入
+    const isExited = Array.isArray(trip.leftMembers) && trip.leftMembers.some(m => m && m.openid === myOid);
+    if (!isExited) {
+      memberOpenids.push(myOid);
+    }
   }
 
   return {
@@ -161,66 +288,38 @@ function mapTripToRow(trip) {
   };
 }
 
-// 获取所有属于当前用户创建或口令加入的旅行活动（本地缓存 + 权限隔离）
+// 本地缓存已彻底废弃，返回空列表以兼容残留调用
 function getTrips() {
-  const allCached = wx.getStorageSync(STORAGE_KEY) || [];
-  let myTripRoles = wx.getStorageSync('MY_TRIP_ROLES') || {};
-  let rolesUpdated = false;
-
-  // 兼容老数据：若老版本在本机创建的行程（members 包含 '我' 且本地有），补全身份
-  allCached.forEach(t => {
-    if (t && t.id && !myTripRoles[t.id]) {
-      if (Array.isArray(t.members) && t.members.length > 0 && t.members[0] === '我') {
-        myTripRoles[t.id] = { role: 'creator', name: '我' };
-        rolesUpdated = true;
-      }
-    }
-  });
-  if (rolesUpdated) {
-    try {
-      wx.setStorageSync('MY_TRIP_ROLES', myTripRoles);
-    } catch (e) {}
-  }
-
-  // 核心隐私隔离：只返回当前用户创建或口令加入过的小队
-  const userTrips = allCached.filter(t => t && t.id && myTripRoles[t.id] && Number(t.trash || 0) !== 1);
-  return userTrips;
+  return [];
 }
 
-// // 保存所有活动列表至本地
-function saveTrips(trips) {
-  const myTripRoles = wx.getStorageSync('MY_TRIP_ROLES') || {};
-  const validTrips = (trips || []).filter(t => t && t.id && myTripRoles[t.id] && Number(t.trash || 0) !== 1);
-  wx.setStorageSync(STORAGE_KEY, validTrips);
-}
+// 本地存储已废弃，直接与 Supabase 云端为单一事实源
+function saveTrips() {}
 
-// 从 Supabase 云端同步仅属于当前用户的行程列表（绑定微信 OpenID，换手机/删程序自动云端找回）
-async function syncTripsFromCloud(userOpenid) {
+// 从 Supabase 云端获取属于当前用户的行程列表（实时直读数据库，无本地缓存偏离）
+async function fetchUserTripsFromCloud(userOpenid) {
   const currentOid = getUserOpenid(userOpenid);
-  let localTrips = getTrips();
+  const leftTripIds = wx.getStorageSync('MY_LEFT_TRIP_IDS') || [];
   let myTripRoles = wx.getStorageSync('MY_TRIP_ROLES') || {};
 
-  if (!supabase) return localTrips;
+  if (!supabase) return [];
 
   const tripMap = new Map();
-  localTrips.forEach(t => {
-    if (t && t.id && Number(t.trash || 0) !== 1) tripMap.set(t.id, t);
-  });
 
   try {
-    // 1. 如果有当前用户的 openid，直接从云端找回该用户的所有行程（创建者 + 参与者，排除已删除 trash=1）
+    // 1. 如果有当前用户的 openid，直接从云端查询属于该用户的所有行程（创建者 + 参与者，排除软删除）
     if (currentOid) {
       // (1) 查询我创建的小队
       const resCreated = await supabase.query('trips', {
         select: '*',
+        to: 1000,
         filters: [
-          { column: '_openid', operator: 'eq', value: currentOid },
-          { column: 'trash', operator: 'neq', value: 1 }
+          { column: '_openid', operator: 'eq', value: currentOid }
         ]
       });
       if (resCreated && resCreated.data && Array.isArray(resCreated.data)) {
         resCreated.data.forEach(row => {
-          if (Number(row.trash || 0) !== 1) {
+          if (Number(row.trash || 0) !== 1 && !leftTripIds.includes(row.id)) {
             const trip = mapRowToTrip(row);
             tripMap.set(trip.id, trip);
             if (!myTripRoles[trip.id]) {
@@ -230,21 +329,24 @@ async function syncTripsFromCloud(userOpenid) {
         });
       }
 
-      // (2) 查询我以成员身份加入过的小队
+      // (2) 查询我以成员身份加入过的小队 (PostgREST cs 包含操作符)
       const resJoined = await supabase.query('trips', {
         select: '*',
+        to: 1000,
         filters: [
-          { column: 'member_openids', operator: 'cs', value: JSON.stringify([currentOid]) },
-          { column: 'trash', operator: 'neq', value: 1 }
+          { column: 'member_openids', operator: 'cs', value: JSON.stringify([currentOid]) }
         ]
       });
       if (resJoined && resJoined.data && Array.isArray(resJoined.data)) {
         resJoined.data.forEach(row => {
-          if (Number(row.trash || 0) !== 1) {
+          if (Number(row.trash || 0) !== 1 && !leftTripIds.includes(row.id)) {
             const trip = mapRowToTrip(row);
-            tripMap.set(trip.id, trip);
-            if (!myTripRoles[trip.id]) {
-              myTripRoles[trip.id] = { role: 'member', name: (trip.members && trip.members[1]) || '队长' };
+            const isExited = Array.isArray(trip.leftMembers) && trip.leftMembers.some(m => m && m.openid === currentOid);
+            if (!isExited) {
+              tripMap.set(trip.id, trip);
+              if (!myTripRoles[trip.id]) {
+                myTripRoles[trip.id] = { role: 'member', name: (trip.members && trip.members[1]) || '队员' };
+              }
             }
           }
         });
@@ -255,54 +357,58 @@ async function syncTripsFromCloud(userOpenid) {
       } catch (e) {}
     }
 
-    // 2. 对本地已加入但尚未关联 openid 的旧小队做定向刷新
-    for (const [id, localTrip] of tripMap.entries()) {
+    // 2. 对通过口令加入但尚未绑定 openid 的小队进行补全查询
+    const roleTripIds = Object.keys(myTripRoles);
+    for (const id of roleTripIds) {
+      if (tripMap.has(id) || leftTripIds.includes(id)) continue;
       try {
         const res = await supabase.query('trips', {
           select: '*',
           filters: [
-            { column: 'id', operator: 'eq', value: id },
-            { column: 'trash', operator: 'neq', value: 1 }
+            { column: 'id', operator: 'eq', value: id }
           ]
         });
         if (res && res.data && Array.isArray(res.data) && res.data.length > 0) {
           const row = res.data[0];
-          if (Number(row.trash || 0) === 1) {
-            tripMap.delete(id);
-          } else {
+          if (Number(row.trash || 0) !== 1) {
             const cloudTrip = mapRowToTrip(row);
-            tripMap.set(id, cloudTrip);
-
-            // 顺便把自己的 openid 补记到该小队的云端 member_openids 中
-            if (currentOid && !cloudTrip.memberOpenids.includes(currentOid)) {
-              cloudTrip.memberOpenids.push(currentOid);
-              supabase.update('trips', mapTripToRow(cloudTrip), [
-                { column: 'id', operator: 'eq', value: id }
-              ]).catch(() => {});
+            const isExited = Array.isArray(cloudTrip.leftMembers) && cloudTrip.leftMembers.some(m => m && (m.openid === currentOid || m.name === myTripRoles[id]?.name));
+            if (!isExited) {
+              tripMap.set(id, cloudTrip);
+              if (currentOid && !cloudTrip.memberOpenids.includes(currentOid)) {
+                cloudTrip.memberOpenids.push(currentOid);
+                supabase.update('trips', mapTripToRow(cloudTrip), [
+                  { column: 'id', operator: 'eq', value: id }
+                ]).catch(() => {});
+              }
             }
           }
         }
       } catch (e) {}
     }
 
-    const mergedTrips = Array.from(tripMap.values()).filter(t => t && Number(t.trash || 0) !== 1);
-    saveTrips(mergedTrips);
+    const mergedTrips = Array.from(tripMap.values()).filter(t => t && Number(t.trash || 0) !== 1 && !leftTripIds.includes(t.id));
+    // 按创建时间倒序排
+    mergedTrips.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
     return mergedTrips;
   } catch (err) {
-    console.warn('Sync trips from cloud warning:', err);
+    console.warn('Fetch user trips from cloud error:', err);
+    return [];
   }
-  return localTrips;
 }
 
-// 获取单个活动详情
-function getTripById(id) {
-  const trips = getTrips();
-  return trips.find(t => t.id === id) || null;
+// 兼容别名：直接拉取云端数据
+async function syncTripsFromCloud(userOpenid) {
+  return await fetchUserTripsFromCloud(userOpenid);
 }
 
-// 创建新旅行活动（同时写本地和云端）
-function createTrip(tripData) {
-  const trips = getTrips();
+// 获取单个活动详情（异步直查 Supabase 云端）
+async function getTripById(id) {
+  return await fetchTripByIdFromCloud(id);
+}
+
+// 创建新旅行活动（直接写入 Supabase 云端数据库）
+async function createTrip(tripData) {
   const myOid = getUserOpenid();
   const creatorName = (tripData.members && tripData.members[0] && tripData.members[0].trim()) ? tripData.members[0].trim() : (tripData.creatorName || '队长');
   const memberList = Array.isArray(tripData.members) && tripData.members.length > 0 ? [...tripData.members] : ['队长'];
@@ -324,10 +430,10 @@ function createTrip(tripData) {
       : JSON.parse(JSON.stringify(CHECKLIST_TEMPLATES.general.items)),
     expenses: [],
     decisions: JSON.parse(JSON.stringify(DEFAULT_DECISIONS)),
+    status: 'ongoing',
+    finishedAt: '',
     createdAt: new Date().toISOString()
   };
-  trips.unshift(newTrip);
-  saveTrips(trips);
 
   // 记录本人为队长创建者
   try {
@@ -336,64 +442,56 @@ function createTrip(tripData) {
     wx.setStorageSync('MY_TRIP_ROLES', myTripRoles);
   } catch (e) {}
 
-  // 异步上传至 Supabase
+  // 直接写入 Supabase 云端
   if (supabase) {
-    supabase.insert('trips', mapTripToRow(newTrip)).catch(err => {
+    try {
+      await supabase.insert('trips', mapTripToRow(newTrip));
+    } catch (err) {
       console.warn('Supabase insert trips error:', err);
-    });
+    }
   }
 
   return newTrip;
 }
 
-// 更新活动（同时更新本地和云端）
-function updateTrip(updatedTrip) {
-  let trips = getTrips();
-  trips = trips.map(t => t.id === updatedTrip.id ? updatedTrip : t);
-  saveTrips(trips);
+// 更新活动（直接 await 更新至 Supabase 云端数据库）
+async function updateTrip(updatedTrip) {
+  if (!updatedTrip || !updatedTrip.id) return false;
 
-  // 异步更新至 Supabase
   if (supabase) {
-    supabase.update('trips', mapTripToRow(updatedTrip), [
-      { column: 'id', operator: 'eq', value: updatedTrip.id }
-    ]).catch(err => {
+    try {
+      await supabase.update('trips', mapTripToRow(updatedTrip), [
+        { column: 'id', operator: 'eq', value: updatedTrip.id }
+      ]);
+      return true;
+    } catch (err) {
       console.warn('Supabase update trips error:', err);
-    });
+      return false;
+    }
   }
+  return false;
 }
 
-// 删除活动（逻辑软删除 trash = 1，保留底账）
-function deleteTrip(id) {
-  let trips = getTrips();
-  const targetTrip = trips.find(t => t.id === id);
-  trips = trips.filter(t => t.id !== id);
-  saveTrips(trips);
-
+// 删除活动（逻辑软删除 trash = 1，直接更新云端数据库）
+async function deleteTrip(id) {
   try {
     const myTripRoles = wx.getStorageSync('MY_TRIP_ROLES') || {};
     delete myTripRoles[id];
     wx.setStorageSync('MY_TRIP_ROLES', myTripRoles);
   } catch (e) {}
 
-  // 异步软删除云端数据
   if (supabase) {
-    if (targetTrip) {
-      targetTrip.trash = 1;
-      const rowData = mapTripToRow(targetTrip);
-      rowData.trash = 1;
-      supabase.update('trips', rowData, [
+    try {
+      await supabase.update('trips', { trash: 1 }, [
         { column: 'id', operator: 'eq', value: id }
-      ]).catch(err => {
-        console.warn('Supabase soft delete update warning:', err);
-      });
-    } else {
-      supabase.update('trips', { trash: 1 }, [
-        { column: 'id', operator: 'eq', value: id }
-      ]).catch(err => {
-        console.warn('Supabase soft delete trip error:', err);
-      });
+      ]);
+      return true;
+    } catch (err) {
+      console.warn('Supabase deleteTrip error:', err);
+      return false;
     }
   }
+  return false;
 }
 
 // 仅通过 6 位口令查询小队信息（进入前预览小队与已有成员）
@@ -425,12 +523,6 @@ async function queryTripByCode(code) {
     }
   }
 
-  // 2. 本地备用检索
-  if (!targetTrip) {
-    const localTrips = getTrips();
-    targetTrip = localTrips.find(t => (t.code || '').toUpperCase() === cleanCode && Number(t.trash || 0) !== 1);
-  }
-
   if (!targetTrip) {
     return { success: false, msg: '未查找到该口令对应的小队，请核对后重试' };
   }
@@ -451,36 +543,14 @@ async function queryTripByCode(code) {
   };
 }
 
-// 认领已有成员身份进入小队
+// 认领已有成员身份进入小队（直接更新 Supabase 云端数据库）
 async function claimTripMember(tripId, memberName) {
-  let trips = getTrips();
-  let targetTrip = trips.find(t => t.id === tripId && Number(t.trash || 0) !== 1);
-
-  // 如果本地没有，从云端实时拉取
-  if (!targetTrip && supabase) {
-    try {
-      const res = await supabase.query('trips', {
-        select: '*',
-        filters: [
-          { column: 'id', operator: 'eq', value: tripId },
-          { column: 'trash', operator: 'neq', value: 1 }
-        ]
-      });
-      if (res && res.data && Array.isArray(res.data) && res.data.length > 0) {
-        if (Number(res.data[0].trash || 0) !== 1) {
-          targetTrip = mapRowToTrip(res.data[0]);
-        }
-      }
-    } catch (e) {
-      console.warn('Query trip by id error:', e);
-    }
-  }
-
+  const targetTrip = await fetchTripByIdFromCloud(tripId);
   if (!targetTrip) {
     return { success: false, msg: '未查找到该小队信息' };
   }
 
-  // 1. 关键：必须先将当前设备角色身份写入 MY_TRIP_ROLES 缓存！
+  // 1. 将当前设备角色身份写入 MY_TRIP_ROLES
   const isLeader = (targetTrip.members[0] === memberName);
   try {
     const myTripRoles = wx.getStorageSync('MY_TRIP_ROLES') || {};
@@ -491,33 +561,42 @@ async function claimTripMember(tripId, memberName) {
     wx.setStorageSync('MY_TRIP_ROLES', myTripRoles);
   } catch (e) {}
 
-  // 2. 然后保存到本地行程列表（此时 saveTrips 内部过滤能识别该行程角色，绝不会被误丢弃）
-  const existingIdx = trips.findIndex(t => t.id === targetTrip.id);
-  if (existingIdx !== -1) {
-    trips[existingIdx] = targetTrip;
-  } else {
-    trips.unshift(targetTrip);
-  }
-  saveTrips(trips);
+  // 2. 解除本地退出标记与云端 leftMembers
+  try {
+    let leftTripIds = wx.getStorageSync('MY_LEFT_TRIP_IDS') || [];
+    if (leftTripIds.includes(targetTrip.id)) {
+      leftTripIds = leftTripIds.filter(id => id !== targetTrip.id);
+      wx.setStorageSync('MY_LEFT_TRIP_IDS', leftTripIds);
+    }
+  } catch (e) {}
 
-  // 3. 绑定当前用户的 openid 到云端 member_openids，保证删小程序后依然自动找回
   const myOid = getUserOpenid();
+  if (Array.isArray(targetTrip.leftMembers)) {
+    targetTrip.leftMembers = targetTrip.leftMembers.filter(m => m.name !== memberName && m.openid !== myOid);
+  }
+
+  // 3. 绑定当前用户的 openid 到云端 member_openids
   if (myOid) {
     targetTrip.memberOpenids = targetTrip.memberOpenids || [];
     if (!targetTrip.memberOpenids.includes(myOid)) {
       targetTrip.memberOpenids.push(myOid);
     }
-    if (supabase) {
-      supabase.update('trips', mapTripToRow(targetTrip), [
+  }
+
+  if (supabase) {
+    try {
+      await supabase.update('trips', mapTripToRow(targetTrip), [
         { column: 'id', operator: 'eq', value: targetTrip.id }
-      ]).catch(e => console.warn('Sync member_openids error:', e));
+      ]);
+    } catch (e) {
+      console.warn('Sync member_openids error:', e);
     }
   }
 
   return { success: true, trip: targetTrip };
 }
 
-// 通过 6 位固定口令码加入旅行小队（新成员）
+// 通过 6 位固定口令码加入旅行小队（新成员，直接更新 Supabase 云端数据库）
 async function joinTripByCode(code, memberName) {
   const cleanCode = (code || '').trim().toUpperCase();
   const name = (memberName || '').trim() || '新队友';
@@ -527,14 +606,12 @@ async function joinTripByCode(code, memberName) {
 
   let targetTrip = null;
 
-  // 1. 优先查云端 Supabase 获取实时小队信息（过滤已删除 trash=1）
   if (supabase) {
     try {
       const res = await supabase.query('trips', {
         select: '*',
         filters: [
-          { column: 'code', operator: 'eq', value: cleanCode },
-          { column: 'trash', operator: 'neq', value: 1 }
+          { column: 'code', operator: 'eq', value: cleanCode }
         ]
       });
       if (res && res.data && Array.isArray(res.data) && res.data.length > 0) {
@@ -547,41 +624,37 @@ async function joinTripByCode(code, memberName) {
     }
   }
 
-  // 2. 本地备用检索
-  if (!targetTrip) {
-    const localTrips = getTrips();
-    targetTrip = localTrips.find(t => (t.code || '').toUpperCase() === cleanCode && Number(t.trash || 0) !== 1);
-  }
-
   if (!targetTrip) {
     return { success: false, msg: '未查找到该口令对应的小队，请核对后重试' };
   }
 
-  // 3. 追加队员名字
+  // 追加队员名字
   targetTrip.members = targetTrip.members || ['队长'];
   if (!targetTrip.members.includes(name)) {
     targetTrip.members.push(name);
   }
 
-  // 4. 关键：先记录该队员在当前设备的角色身份
+  // 记录该队员在当前设备的角色身份
   try {
     const myTripRoles = wx.getStorageSync('MY_TRIP_ROLES') || {};
     myTripRoles[targetTrip.id] = { role: 'member', name };
     wx.setStorageSync('MY_TRIP_ROLES', myTripRoles);
   } catch (e) {}
 
-  // 5. 保存到本地行程列表
-  let trips = getTrips();
-  const existingIdx = trips.findIndex(t => t.id === targetTrip.id);
-  if (existingIdx !== -1) {
-    trips[existingIdx] = targetTrip;
-  } else {
-    trips.unshift(targetTrip);
-  }
-  saveTrips(trips);
+  // 解除退出标记
+  try {
+    let leftTripIds = wx.getStorageSync('MY_LEFT_TRIP_IDS') || [];
+    if (leftTripIds.includes(targetTrip.id)) {
+      leftTripIds = leftTripIds.filter(id => id !== targetTrip.id);
+      wx.setStorageSync('MY_LEFT_TRIP_IDS', leftTripIds);
+    }
+  } catch (e) {}
 
-  // 6. 绑定当前用户的 openid 到云端 member_openids
   const myOid = getUserOpenid();
+  if (Array.isArray(targetTrip.leftMembers)) {
+    targetTrip.leftMembers = targetTrip.leftMembers.filter(m => m.name !== name && m.openid !== myOid);
+  }
+
   if (myOid) {
     targetTrip.memberOpenids = targetTrip.memberOpenids || [];
     if (!targetTrip.memberOpenids.includes(myOid)) {
@@ -589,27 +662,55 @@ async function joinTripByCode(code, memberName) {
     }
   }
 
-  // 7. 云端同步更新队员名单
+  // 云端同步更新队员名单
   if (supabase) {
-    supabase.update('trips', mapTripToRow(targetTrip), [
-      { column: 'id', operator: 'eq', value: targetTrip.id }
-    ]).catch(err => {
+    try {
+      await supabase.update('trips', mapTripToRow(targetTrip), [
+        { column: 'id', operator: 'eq', value: targetTrip.id }
+      ]);
+    } catch (err) {
       console.warn('Supabase join trip update error:', err);
-    });
+    }
   }
 
   return { success: true, trip: targetTrip };
 }
 
-// 队员主动退出小队
-function leaveTrip(tripId, memberName) {
-  let trips = getTrips();
-  const trip = trips.find(t => t.id === tripId);
+// 队员主动退出小队（直接更新 Supabase 云端数据库）
+async function leaveTrip(tripId, memberName) {
+  const myOid = getUserOpenid();
+  const trip = await fetchTripByIdFromCloud(tripId);
+
+  // 1. 记录本地“已退队黑名单”
+  try {
+    const leftTripIds = wx.getStorageSync('MY_LEFT_TRIP_IDS') || [];
+    if (!leftTripIds.includes(tripId)) {
+      leftTripIds.push(tripId);
+      wx.setStorageSync('MY_LEFT_TRIP_IDS', leftTripIds);
+    }
+  } catch (e) {}
+
+  // 2. 清除该行程对应的本地角色映射
+  try {
+    const myTripRoles = wx.getStorageSync('MY_TRIP_ROLES') || {};
+    delete myTripRoles[tripId];
+    wx.setStorageSync('MY_TRIP_ROLES', myTripRoles);
+  } catch (e) {}
+
+  // 3. 数据层修改：剔除在队成员、增加已退队标志记录 leftMembers、从云端 member_openids 剔除 openid
   if (trip && memberName) {
-    // 1. 从小队在队成员中移除
     trip.members = (trip.members || []).filter(m => m !== memberName);
-    
-    // 2. 将清单中分配给该成员的物品重置为 '所有人'，防止任务被遗忘
+    trip.leftMembers = trip.leftMembers || [];
+    const now = new Date();
+    const timeStr = `${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    if (!trip.leftMembers.some(m => m.name === memberName)) {
+      trip.leftMembers.push({
+        name: memberName,
+        openid: myOid || '',
+        leftAt: timeStr
+      });
+    }
+
     if (Array.isArray(trip.checklist)) {
       trip.checklist.forEach(item => {
         if (item.assignee === memberName) {
@@ -618,20 +719,22 @@ function leaveTrip(tripId, memberName) {
       });
     }
 
-    updateTrip(trip);
+    if (myOid) {
+      trip.memberOpenids = (trip.memberOpenids || []).filter(oid => oid !== myOid);
+    }
+
+    if (supabase) {
+      try {
+        await supabase.update('trips', mapTripToRow(trip, true), [
+          { column: 'id', operator: 'eq', value: trip.id }
+        ]);
+      } catch (err) {
+        console.warn('Supabase leaveTrip update error:', err);
+      }
+    }
   }
-
-  // 3. 从本地缓存中删除该行程卡片
-  trips = trips.filter(t => t.id !== tripId);
-  saveTrips(trips);
-
-  // 4. 清除该行程对应的个人角色缓存
-  try {
-    const myTripRoles = wx.getStorageSync('MY_TRIP_ROLES') || {};
-    delete myTripRoles[tripId];
-    wx.setStorageSync('MY_TRIP_ROLES', myTripRoles);
-  } catch (e) {}
 }
+
 
 /**
  * AA 清算核心算法：最小转账路径匹配（全面兼容离队成员与转账结清状态）
@@ -840,10 +943,9 @@ function calculateAASettlement(members, expenses, settledTransfers = []) {
   };
 }
 
-// 切换单个转账方案的结清/未结状态
-function toggleSettledTransfer(tripId, planId, operatorName) {
-  let trips = getTrips();
-  const trip = trips.find(t => t.id === tripId);
+// 切换单个转账方案的结清/未结状态（直接更新 Supabase 云端数据库）
+async function toggleSettledTransfer(tripId, planId, operatorName) {
+  const trip = await fetchTripByIdFromCloud(tripId);
   if (!trip) return { success: false, msg: '未找到该行程' };
 
   trip.settledTransfers = trip.settledTransfers || [];
@@ -866,14 +968,13 @@ function toggleSettledTransfer(tripId, planId, operatorName) {
     isSettled = true;
   }
 
-  updateTrip(trip);
-  return { success: true, isSettled };
+  await updateTrip(trip);
+  return { success: true, isSettled, trip };
 }
 
-// 一键全部标记结清
-function settleAllTransfers(tripId, plans, operatorName) {
-  let trips = getTrips();
-  const trip = trips.find(t => t.id === tripId);
+// 一键全部标记结清（直接更新 Supabase 云端数据库）
+async function settleAllTransfers(tripId, plans, operatorName) {
+  const trip = await fetchTripByIdFromCloud(tripId);
   if (!trip) return { success: false, msg: '未找到该行程' };
 
   trip.settledTransfers = trip.settledTransfers || [];
@@ -893,39 +994,38 @@ function settleAllTransfers(tripId, plans, operatorName) {
     }
   });
 
-  updateTrip(trip);
-  return { success: true };
+  await updateTrip(trip);
+  return { success: true, trip };
 }
 
-// 重置全部结清状态
-function resetAllTransfers(tripId) {
-  let trips = getTrips();
-  const trip = trips.find(t => t.id === tripId);
+// 重置全部结清状态（直接更新 Supabase 云端数据库）
+async function resetAllTransfers(tripId) {
+  const trip = await fetchTripByIdFromCloud(tripId);
   if (!trip) return { success: false, msg: '未找到该行程' };
 
   trip.settledTransfers = [];
-  updateTrip(trip);
-  return { success: true };
+  await updateTrip(trip);
+  return { success: true, trip };
 }
 
 
-// 详情页动态添加小队新成员
-function addMemberToTrip(tripId, memberName) {
+// 详情页动态添加小队新成员（直接更新 Supabase 云端数据库）
+async function addMemberToTrip(tripId, memberName) {
   const name = (memberName || '').trim();
   if (!name) return { success: false, msg: '请输入成员姓名' };
-  let trips = getTrips();
-  const trip = trips.find(t => t.id === tripId);
+  const trip = await fetchTripByIdFromCloud(tripId);
   if (!trip) return { success: false, msg: '未找到该行程' };
 
-  trip.members = trip.members || ['我'];
+  trip.members = trip.members || ['队长'];
   if (trip.members.includes(name)) {
     return { success: false, msg: '该成员已在小队中' };
   }
 
   trip.members.push(name);
-  updateTrip(trip);
+  await updateTrip(trip);
   return { success: true, trip };
 }
+
 
 /**
  * 将行程中当前成员的花销记录批量同步到个人记账流水 (wxapp 表)
@@ -1034,39 +1134,20 @@ async function syncTripExpensesToPersonalBills(trip, myMemberName) {
 }
 
 
-// 从云端实时获取单个行程最新完整数据（进入详情页时云端即时同步拉取）
+// 从云端实时获取单个行程最新完整数据（直接从 Supabase 云端数据库查询）
 async function fetchTripByIdFromCloud(tripId) {
   if (!tripId || !supabase) return null;
   try {
     const res = await supabase.query('trips', {
       select: '*',
       filters: [
-        { column: 'id', operator: 'eq', value: tripId },
-        { column: 'trash', operator: 'neq', value: 1 }
+        { column: 'id', operator: 'eq', value: tripId }
       ]
     });
-    if (res && res.data && Array.isArray(res.data)) {
-      if (res.data.length > 0) {
-        const trip = mapRowToTrip(res.data[0]);
-        if (trip && Number(trip.trash || 0) !== 1) {
-          let trips = getTrips();
-          const idx = trips.findIndex(t => t.id === trip.id);
-          if (idx !== -1) {
-            trips[idx] = trip;
-          } else {
-            trips.unshift(trip);
-          }
-          saveTrips(trips);
-          return trip;
-        }
-      } else {
-        // 云端没有该行程或已被删除，从本地缓存剔除
-        let trips = getTrips();
-        const existingIdx = trips.findIndex(t => t.id === tripId);
-        if (existingIdx !== -1) {
-          trips.splice(existingIdx, 1);
-          saveTrips(trips);
-        }
+    if (res && res.data && Array.isArray(res.data) && res.data.length > 0) {
+      const trip = mapRowToTrip(res.data[0]);
+      if (trip && Number(trip.trash || 0) !== 1) {
+        return trip;
       }
     }
   } catch (e) {
@@ -1075,10 +1156,106 @@ async function fetchTripByIdFromCloud(tripId) {
   return null;
 }
 
+// 获取本地当前日期字符串 YYYY-MM-DD
+function getLocalDateStr() {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+// 计算行程当前有效状态：'ongoing'（进行中）或 'finished'（已结束）
+function getTripStatus(trip) {
+  if (!trip) return 'ongoing';
+  if (trip.status === 'finished') return 'finished';
+  if (trip.status === 'reopened') return 'ongoing';
+  if (trip.endDate && trip.endDate < getLocalDateStr()) {
+    return 'finished';
+  }
+  return 'ongoing';
+}
+
+// 计算行程结清与平账状态信息
+function getTripSettlementInfo(trip) {
+  if (!trip) {
+    return { isAllSettled: true, pendingCount: 0, pendingAmount: '0.00', totalExpense: '0.00', transferPlans: [] };
+  }
+  const settlement = calculateAASettlement(trip.members || [], trip.expenses || [], trip.settledTransfers || []);
+  const plans = settlement.transferPlans || [];
+  const pendingPlans = plans.filter(p => !p.isSettled);
+  const pendingCount = pendingPlans.length;
+  const pendingAmount = pendingPlans.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0).toFixed(2);
+  const isAllSettled = (plans.length === 0) || (pendingCount === 0);
+  return {
+    isAllSettled,
+    pendingCount,
+    pendingAmount,
+    totalExpense: settlement.totalExpense || '0.00',
+    transferPlans: plans
+  };
+}
+
+// 获取待同步至个人账单的花销统计信息
+function getPendingPersonalSyncInfo(trip, myMemberName) {
+  if (!trip || !Array.isArray(trip.expenses) || trip.expenses.length === 0) {
+    return { count: 0, totalAmount: '0.00', items: [] };
+  }
+  const syncedKey = `SYNCED_EXPENSES_${trip.id}`;
+  const syncedIds = wx.getStorageSync(syncedKey) || [];
+  
+  const myExpenses = trip.expenses.filter(item => {
+    if (syncedIds.includes(item.id)) return false;
+    const parts = item.participants && item.participants.length > 0 ? item.participants : (trip.members || []);
+    return parts.includes(myMemberName) || item.payer === myMemberName;
+  });
+
+  let totalAmt = 0;
+  myExpenses.forEach(exp => {
+    const parts = exp.participants && exp.participants.length > 0 ? exp.participants : (trip.members || []);
+    const amt = parseFloat(exp.amount) || 0;
+    const personalAmt = parts.includes(myMemberName) ? (amt / (parts.length || 1)) : amt;
+    totalAmt += personalAmt;
+  });
+
+  return {
+    count: myExpenses.length,
+    totalAmount: totalAmt.toFixed(2),
+    items: myExpenses
+  };
+}
+
+// 手动结束行程并归档（直接更新 Supabase 云端数据库）
+async function finishTrip(tripId) {
+  const trip = await fetchTripByIdFromCloud(tripId);
+  if (!trip) return { success: false, msg: '未找到该小队' };
+  trip.status = 'finished';
+  trip.finishedAt = new Date().toISOString();
+  await updateTrip(trip);
+  return { success: true, trip };
+}
+
+// 重新开启已结束的行程（直接更新 Supabase 云端数据库）
+async function reopenTrip(tripId) {
+  const trip = await fetchTripByIdFromCloud(tripId);
+  if (!trip) return { success: false, msg: '未找到该小队' };
+  trip.status = 'reopened';
+  delete trip.finishedAt;
+  await updateTrip(trip);
+  return { success: true, trip };
+}
+
 module.exports = {
   fetchTripByIdFromCloud,
+  fetchUserTripsFromCloud,
   addMemberToTrip,
   syncTripExpensesToPersonalBills,
+  getPendingPersonalSyncInfo,
+  getTripStatus,
+  getTripSettlementInfo,
+  finishTrip,
+  reopenTrip,
+  getLocalDateStr,
   CHECKLIST_TEMPLATES,
   DEFAULT_DECISIONS,
   getTrips,
@@ -1098,3 +1275,4 @@ module.exports = {
   resetAllTransfers,
   syncTripsFromCloud
 };
+

@@ -8,7 +8,7 @@
           <text class="dot"></text>
           <text class="tag-text">我的账本</text>
         </view>
-        <view class="refresh-btn touch-active" bindtap="loadAccountData">
+        <view class="refresh-btn touch-active" bindtap="refreshPage">
           <image class="refresh-icon {{loading ? 'rotating' : ''}}" src="/images/refresh.png"></image>
           <text>刷新</text>
         </view>
@@ -89,35 +89,52 @@
 
   <!-- 旅行小队协同专区 (旅行清单 + AA结算 + 多人决策) -->
   <view class="trip-hub-section">
-    <!-- 已有旅行活动卡片 -->
-    <block wx:if="{{trips.length > 0}}">
+    <!-- 有进行中小队时：显示工作台头部与进行中卡片 -->
+    <block wx:if="{{ongoingTrips.length > 0}}">
       <view class="trip-section-head">
         <view class="trip-head-title">
           <text class="trip-head-icon">✈️</text>
           <text class="trip-head-text">旅行小队工作台</text>
         </view>
-        <view class="trip-add-link touch-active" bindtap="goToTripCreate">
-          <text>+ 发起新行程</text>
+        <view class="trip-head-actions">
+          <!-- 在发起新行程前面添加历史行程 -->
+          <view class="trip-history-link touch-active" bindtap="goToTripList">
+            <text class="thl-icon">📁</text>
+            <text class="thl-txt">历史行程</text>
+            <text class="thl-count font-number" wx:if="{{historyTrips.length > 0}}">({{historyTrips.length}})</text>
+          </view>
+          <view class="trip-add-link touch-active" bindtap="goToTripCreate">
+            <text>+ 发起新行程</text>
+          </view>
         </view>
       </view>
 
+      <!-- 进行中小队卡片列表 -->
       <view 
         class="trip-active-card touch-active" 
-        wx:for="{{trips}}" 
+        wx:for="{{ongoingTrips}}" 
         wx:key="id" 
         data-id="{{item.id}}" 
         bindtap="goToTripDetail"
       >
         <view class="tac-top">
           <view class="tac-title-box">
-            <text class="tac-title">{{item.title}}</text>
-            <text class="tac-dest">📍 {{item.destination || '旅行进行中'}}</text>
+            <view class="tac-title-row">
+              <text class="tac-title">{{item.title}}</text>
+              <view class="tac-status-tag tag-ongoing">
+                <text class="dot">●</text> 进行中
+              </view>
+            </view>
+            <view class="tac-dest-row">
+              <text class="tac-dest">📍 {{item.destination || '旅行进行中'}}</text>
+              <text class="tac-dates" wx:if="{{item.startDate}}">{{item.startDate}} ~ {{item.endDate}}</text>
+            </view>
           </view>
           <view class="tac-right-actions">
             <view class="tac-del-btn touch-active" catchtap="deleteTripFromHome" data-id="{{item.id}}" data-title="{{item.title}}">
               <text class="tac-del-icon">🗑️</text>
             </view>
-            <view class="tac-arrow">进入工作台 ›</view>
+            <view class="tac-arrow">工作台 ›</view>
           </view>
         </view>
 
@@ -127,12 +144,12 @@
             <text class="chip-txt">{{item.members.length}}人小队</text>
           </view>
           <view class="tac-chip">
-            <text class="chip-icon">📋</text>
-            <text class="chip-txt">待办清单 ({{item.checklist.length}})</text>
-          </view>
-          <view class="tac-chip">
             <text class="chip-icon">💳</text>
             <text class="chip-txt">AA消费 ({{item.expenses.length}}笔)</text>
+          </view>
+          <view class="tac-chip quick-decision-chip touch-active" catchtap="openTripQuickDecision" data-id="{{item.id}}">
+            <text class="chip-icon">🎯</text>
+            <text class="chip-txt">快速决策</text>
           </view>
         </view>
       </view>
@@ -147,11 +164,20 @@
       </view>
     </block>
 
-    <!-- 尚未创建任何活动时的引导横幅 -->
+    <!-- 没有进行中行程时：还原成图中的 UI 样式，并在右上角添加历史行程 -->
     <block wx:else>
       <view class="trip-promo-card">
-        <view class="promo-header">
+        <view class="promo-top-row">
           <view class="promo-badge">全新功能</view>
+          <!-- 模块右上角加一个历史行程 -->
+          <view class="promo-history-link touch-active" bindtap="goToTripList">
+            <text class="phl-icon">📁</text>
+            <text class="phl-txt">历史行程</text>
+            <text class="phl-count font-number" wx:if="{{historyTrips.length > 0}}">({{historyTrips.length}})</text>
+            <text class="phl-arrow">›</text>
+          </view>
+        </view>
+        <view class="promo-header">
           <view class="promo-title">🧳 旅行小队协同工作台</view>
           <view class="promo-desc">行李清单打卡 · AA智能平账 · 命运决策转盘</view>
         </view>
@@ -227,7 +253,6 @@
                   <text class="m-radio-inner" wx:if="{{selectedMemberName === item && !isNewMember}}">✓</text>
                 </view>
                 <text class="m-name">{{item}}</text>
-                <text class="m-tag" wx:if="{{index === 0}}">队长</text>
               </view>
 
               <!-- 我是新成员（不在名单中） -->
@@ -338,6 +363,56 @@
         <image src="/images/empty.png" class="empty-img" mode="aspectFit"></image>
         <text class="empty-title">暂无账单记录</text>
         <text class="empty-sub">开启你的第一笔记账生活吧</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 首页快速决策投票弹窗 -->
+  <view class="modal-mask quick-decision-mask" wx:if="{{showQuickDecisionModal}}" bindtap="closeQuickDecisionModal">
+    <view class="quick-decision-modal" catchtap="true">
+      <view class="qdm-header">
+        <view class="qdm-meta">
+          <text class="qdm-trip-badge">🧳 {{quickDecisionTrip.title}}</text>
+          <text class="qdm-my-identity">身份: {{quickDecisionMyName}}</text>
+        </view>
+        <view class="qdm-close-btn touch-active" bindtap="closeQuickDecisionModal">✕</view>
+      </view>
+
+      <view class="qdm-title-wrap">
+        <text class="qdm-icon">🎯</text>
+        <text class="qdm-title">{{quickDecision.title}}</text>
+      </view>
+      <view class="qdm-sub">点击选项即可快速投票或切换（再次点击撤销）</view>
+
+      <!-- 选项列表 -->
+      <view class="qdm-options-list">
+        <view 
+          class="qdm-opt-card {{quickDecisionMyVote === item.id ? 'active' : ''}} touch-active" 
+          wx:for="{{quickDecision.options}}" 
+          wx:key="id"
+          bindtap="castQuickVote"
+          data-optid="{{item.id}}"
+        >
+          <view class="qdm-opt-left">
+            <view class="qdm-radio {{quickDecisionMyVote === item.id ? 'checked' : ''}}">
+              <text wx:if="{{quickDecisionMyVote === item.id}}">✓</text>
+            </view>
+            <text class="qdm-opt-text">{{item.text}}</text>
+          </view>
+          <view class="qdm-opt-right">
+            <text class="qdm-vote-count font-number" wx:if="{{item.votes > 0}}">{{item.votes}}票</text>
+            <text class="qdm-my-tag" wx:if="{{quickDecisionMyVote === item.id}}">我已投</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 底部操作栏 -->
+      <view class="qdm-footer">
+        <view class="qdm-detail-link touch-active" bindtap="goToQuickDecisionDetail">
+          <text>进入小队工作台详情</text>
+          <text class="qdm-arrow">›</text>
+        </view>
+        <button class="qdm-done-btn touch-active" bindtap="closeQuickDecisionModal">完成</button>
       </view>
     </view>
   </view>

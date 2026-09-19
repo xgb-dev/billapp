@@ -8,7 +8,8 @@
     "pages/chart/chart",
     "pages/trip/trip-create",
     "pages/trip/trip-detail",
-    "pages/trip/aa-add"
+    "pages/trip/aa-add",
+    "pages/trip/trip-list"
   ],
   "window": {
     "navigationBarTextStyle": "black",

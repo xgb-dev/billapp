@@ -56,19 +56,18 @@
     </view>
 
     <view class="members-chips-wrap">
-      <block wx:for="{{members}}" wx:key="*this">
-        <!-- 队长（第一位成员），可点击编辑名称，带队长徽章 -->
-        <view wx:if="{{index === 0}}" class="member-chip leader-chip touch-active" bindtap="openEditLeaderModal">
-          <text class="leader-badge">👑 队长</text>
-          <text class="member-name">{{item}}</text>
-          <text class="edit-icon">✎</text>
-        </view>
-        <!-- 普通成员，可点击移除 -->
-        <view wx:else class="member-chip">
-          <text class="member-name">{{item}}</text>
-          <text class="remove-btn" catchtap="removeMember" data-index="{{index}}">×</text>
-        </view>
-      </block>
+      <view 
+        wx:for="{{members}}" 
+        wx:key="*this"
+        class="member-chip touch-active" 
+        bindtap="openEditMemberModal"
+        data-index="{{index}}"
+        data-name="{{item}}"
+      >
+        <text class="member-name">{{item}}</text>
+        <text class="edit-icon">✎</text>
+        <text class="remove-btn" wx:if="{{index > 0}}" catchtap="removeMember" data-index="{{index}}">×</text>
+      </view>
     </view>
 
     <!-- 添加成员输入栏 -->
@@ -116,24 +115,24 @@
     <button class="submit-btn touch-active" bindtap="submitCreate">立即开启旅行小队</button>
   </view>
 
-  <!-- 修改队长名称弹窗 -->
-  <view class="modal-mask" wx:if="{{showEditLeaderModal}}">
+  <!-- 修改成员名称弹窗 -->
+  <view class="modal-mask" wx:if="{{showEditMemberModal}}">
     <view class="modal-box">
-      <view class="modal-title">👑 修改队长名称</view>
-      <view class="modal-sub">设置您在小队中的显示名字/昵称，方便大家对账</view>
+      <view class="modal-title">✏️ 修改成员名称</view>
+      <view class="modal-sub">设置在小队中的显示名字/昵称，方便大家对账</view>
       <view class="modal-field">
         <input 
           class="modal-input" 
-          value="{{tempLeaderName}}" 
-          bindinput="onLeaderNameInput" 
-          placeholder="例如：阿强、老张（默认：队长）" 
+          value="{{tempMemberName}}" 
+          bindinput="onMemberNameInput" 
+          placeholder="请输入成员姓名" 
           maxlength="10" 
-          focus="{{showEditLeaderModal}}" 
+          focus="{{showEditMemberModal}}" 
         />
       </view>
       <view class="modal-btns">
-        <button class="m-btn cancel touch-active" bindtap="closeEditLeaderModal">取消</button>
-        <button class="m-btn confirm touch-active" bindtap="confirmEditLeader">保存修改</button>
+        <button class="m-btn cancel touch-active" bindtap="closeEditMemberModal">取消</button>
+        <button class="m-btn confirm touch-active" bindtap="confirmEditMember">保存修改</button>
       </view>
     </view>
   </view>
