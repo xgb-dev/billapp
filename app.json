@@ -9,7 +9,8 @@
     "pages/trip/trip-create",
     "pages/trip/trip-detail",
     "pages/trip/aa-add",
-    "pages/trip/trip-list"
+    "pages/trip/trip-list",
+    "pages/trip/trip-history-detail"
   ],
   "window": {
     "navigationBarTextStyle": "black",

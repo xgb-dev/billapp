@@ -80,6 +80,9 @@
       <text class="ftb-title">此行程已归档至历史记录</text>
       <text class="ftb-desc">{{settlementInfo.isAllSettled ? '账单已全部平账结清，随时可回顾查账。' : '尚有 ' + settlementInfo.pendingCount + ' 笔待结清转账（¥' + settlementInfo.pendingAmount + '），仍可正常结算。'}}</text>
     </view>
+    <view class="ftb-btn touch-active" bindtap="goToHistoryDetail">
+      <text>专属账单回顾 ›</text>
+    </view>
   </view>
 
   <!-- 3大核心模块 Tab 切换栏 -->

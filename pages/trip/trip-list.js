@@ -96,9 +96,17 @@ Page({
   goToTripDetail(e) {
     const tripId = e.currentTarget.dataset.id;
     if (tripId) {
-      wx.navigateTo({
-        url: `/pages/trip/trip-detail?tripId=${tripId}`
-      });
+      const trip = (this.data.trips || []).find(t => t.id === tripId);
+      const isFinished = trip ? (trip.computedStatus === 'finished') : false;
+      if (isFinished) {
+        wx.navigateTo({
+          url: `/pages/trip/trip-history-detail?tripId=${tripId}`
+        });
+      } else {
+        wx.navigateTo({
+          url: `/pages/trip/trip-detail?tripId=${tripId}`
+        });
+      }
     }
   },
 

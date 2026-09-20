@@ -1,0 +1,323 @@
+<view class="container">
+  <!-- 加载状态 -->
+  <view class="loading-wrap" wx:if="{{loading}}">
+    <view class="loading-spinner"></view>
+    <text class="loading-txt">正在加载历史回忆与账单...</text>
+  </view>
+
+  <block wx:else>
+    <!-- 1. 顶部旅行纪念大卡片 -->
+    <view class="memory-hero">
+      <view class="hero-bg-accent"></view>
+      <view class="hero-content">
+        <!-- 状态与快捷管理 -->
+        <view class="hero-header-row">
+          <view class="badge-group">
+            <view class="hero-badge badge-finished">
+              <text class="dot">●</text> 已完结归档
+            </view>
+            <view class="hero-badge {{isAllSettled ? 'badge-green' : 'badge-amber'}}">
+              <text>{{isAllSettled ? '✓ 已全部平账' : '⏳ 待转账平账'}}</text>
+            </view>
+          </view>
+          
+          <!-- 队长管理操作 -->
+          <view class="hero-ctrls" wx:if="{{isCreator}}">
+            <view class="ctrl-btn reopen touch-active" bindtap="handleReopenTrip">
+              <text class="btn-icon">↺</text>
+              <text>重新开启</text>
+            </view>
+            <view class="ctrl-btn del touch-active" bindtap="handleDeleteTrip">
+              <text class="btn-icon">🗑️</text>
+            </view>
+          </view>
+        </view>
+
+        <!-- 行程主标题与地点 -->
+        <view class="hero-title">{{trip.title || '旅行回忆'}}</view>
+        <view class="hero-meta-grid">
+          <view class="meta-item">
+            <text class="meta-icon">📍</text>
+            <text class="meta-text">{{trip.destination || '随性游'}}</text>
+          </view>
+          <view class="meta-item" wx:if="{{trip.startDate}}">
+            <text class="meta-icon">🗓️</text>
+            <text class="meta-text">{{trip.startDate}} ~ {{trip.endDate}} (共{{teamStats.daysCount}}天)</text>
+          </view>
+        </view>
+
+        <!-- 团队成员小头像标签 -->
+        <view class="hero-members">
+          <text class="hm-label">小队成员 ({{members.length}}人):</text>
+          <view class="hm-list">
+            <view class="hm-tag {{m === myMemberName ? 'hm-me' : ''}}" wx:for="{{members}}" wx:for-item="m" wx:key="*this">
+              <text class="hm-name">{{m}}</text>
+              <text class="hm-sub" wx:if="{{m === myMemberName}}">我</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 2. 队员视角切换栏（核心亮点） -->
+    <view class="member-selector-section">
+      <view class="selector-header">
+        <text class="sh-title">👤 队员账单视角切换</text>
+        <text class="sh-hint">点击可查看对应队友的专属总结</text>
+      </view>
+      <scroll-view class="member-tabs-scroll" scroll-x="true" show-scrollbar="false">
+        <view class="tabs-row">
+          <view 
+            class="member-tab-chip touch-active {{viewingMemberName === m ? 'active' : ''}}" 
+            wx:for="{{members}}" 
+            wx:for-item="m" 
+            wx:key="*this"
+            bindtap="switchViewingMember"
+            data-name="{{m}}"
+          >
+            <text class="tab-chip-name">{{m}}</text>
+            <text class="tab-chip-me" wx:if="{{m === myMemberName}}">我</text>
+            <view class="active-dot" wx:if="{{viewingMemberName === m}}"></view>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+
+    <!-- 3. 【核心重点】队员专属个人账单报告卡片 -->
+    <view class="personal-report-card">
+      <view class="report-header">
+        <view class="rh-left">
+          <view class="rh-avatar">📊</view>
+          <view class="rh-titles">
+            <view class="rh-main-title">
+              <text>{{personalSummary.isMe ? '我的旅行账单报告' : personalSummary.name + ' 的专属总结'}}</text>
+              <text class="role-badge" wx:if="{{personalSummary.isMe}}">本人视角</text>
+            </view>
+            <view class="rh-sub-desc">{{personalSummary.balanceText}}</view>
+          </view>
+        </view>
+        <view class="rh-status {{personalSummary.isSettledUp ? 'status-cleared' : 'status-waiting'}}">
+          <text>{{personalSummary.isSettledUp ? '🎉 账目已结清' : '待平账'}}</text>
+        </view>
+      </view>
+
+      <!-- 个人收支三大核心大数字看板 -->
+      <view class="personal-kpi-grid">
+        <view class="kpi-box box-owed">
+          <view class="kpi-label">实际应承担</view>
+          <view class="kpi-value font-number">
+            <text class="curr">¥</text>{{personalSummary.owed}}
+          </view>
+          <view class="kpi-note">真正属于TA的花费</view>
+        </view>
+
+        <view class="kpi-box box-paid">
+          <view class="kpi-label">垫付掏出总额</view>
+          <view class="kpi-value font-number">
+            <text class="curr">¥</text>{{personalSummary.paid}}
+          </view>
+          <view class="kpi-note">为团队掏钱包垫付</view>
+        </view>
+
+        <view class="kpi-box {{personalSummary.balanceType === 'receive' ? 'box-receive' : (personalSummary.balanceType === 'pay' ? 'box-pay' : 'box-even')}}">
+          <view class="kpi-label">
+            {{personalSummary.balanceType === 'receive' ? '最终应收回' : (personalSummary.balanceType === 'pay' ? '最终需支付' : '最终结算差额')}}
+          </view>
+          <view class="kpi-value font-number">
+            <text class="curr">¥</text>{{personalSummary.balance}}
+          </view>
+          <view class="kpi-note">
+            {{personalSummary.isSettledUp ? '转账已结清 ✓' : (personalSummary.balanceType === 'receive' ? '待收回款项' : '待转给队友')}}
+          </view>
+        </view>
+      </view>
+
+      <!-- 同步到个人记账流水（仅本人时可操作） -->
+      <view class="personal-sync-box" wx:if="{{personalSummary.isMe}}">
+        <view class="sync-left">
+          <view class="sync-title">
+            <text class="sync-icon">{{syncInfo.isSyncedAll ? '✅' : '💡'}}</text>
+            <text class="sync-heading">{{syncInfo.isSyncedAll ? '支出已全部同步到个人记账本' : '同步至个人记账流水'}}</text>
+          </view>
+          <view class="sync-desc" wx:if="{{!syncInfo.isSyncedAll}}">
+            有 <text class="font-number highlight">{{syncInfo.pendingCount}}</text> 笔个人分摊支出 (¥{{syncInfo.pendingAmount}}) 尚未同步
+          </view>
+          <view class="sync-desc text-muted" wx:else>
+            本次旅行花销已完备记录在首页日常收支中
+          </view>
+        </view>
+        <view 
+          class="sync-btn touch-active {{syncInfo.isSyncedAll ? 'btn-disabled' : ''}}" 
+          bindtap="handleSyncToPersonal"
+          wx:if="{{!syncInfo.isSyncedAll}}"
+        >
+          <text>{{isSyncing ? '同步中...' : '一键同步'}}</text>
+        </view>
+      </view>
+
+      <!-- 涉及该队员的转账轨迹 -->
+      <view class="related-transfers-section" wx:if="{{personalSummary.relatedTransfers.length > 0}}">
+        <view class="section-sub-title">🔄 转账清算轨迹 ({{personalSummary.relatedTransfers.length}}笔)</view>
+        <view class="transfer-list">
+          <view class="transfer-item {{t.isSettled ? 'tf-settled' : 'tf-pending'}}" wx:for="{{personalSummary.relatedTransfers}}" wx:for-item="t" wx:key="id">
+            <view class="tf-left">
+              <text class="tf-badge">{{t.roleText}}</text>
+              <text class="tf-name">{{t.counterpart}}</text>
+            </view>
+            <view class="tf-right">
+              <text class="tf-amt font-number">¥{{t.amount}}</text>
+              <text class="tf-status">{{t.isSettled ? '已结清 ✓' : '待转账 ⏳'}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- 属于该队员的花销明细拆解 -->
+      <view class="personal-expenses-section">
+        <view class="section-sub-title">🧾 个人账单明细拆解</view>
+        
+        <!-- 我垫付的账单 -->
+        <view class="exp-block">
+          <view class="block-label">
+            <text class="dot-tag dot-paid">●</text>
+            <text>TA掏钱垫付的单子 ({{personalSummary.paidExpenses.length}}笔)</text>
+          </view>
+          <view class="exp-empty" wx:if="{{personalSummary.paidExpenses.length === 0}}">
+            未垫付支出
+          </view>
+          <view class="exp-item" wx:for="{{personalSummary.paidExpenses}}" wx:for-item="exp" wx:key="id">
+            <view class="exp-main">
+              <view class="exp-desc">{{exp.desc || exp.category || '行程消费'}}</view>
+              <view class="exp-date font-number">{{exp.date}} · 全队{{exp.splitCount}}人AA</view>
+            </view>
+            <view class="exp-side">
+              <text class="exp-total font-number">垫付 ¥{{exp.formattedAmount}}</text>
+              <text class="exp-share font-number">(自摊 ¥{{exp.myShare}})</text>
+            </view>
+          </view>
+        </view>
+
+        <!-- 我参与分摊的账单 -->
+        <view class="exp-block" style="margin-top: 24rpx;">
+          <view class="block-label">
+            <text class="dot-tag dot-owed">●</text>
+            <text>TA参与分摊的单子 ({{personalSummary.participatedExpenses.length}}笔)</text>
+          </view>
+          <view class="exp-empty" wx:if="{{personalSummary.participatedExpenses.length === 0}}">
+            未参与任何账单分摊
+          </view>
+          <view class="exp-item" wx:for="{{personalSummary.participatedExpenses}}" wx:for-item="exp" wx:key="id">
+            <view class="exp-main">
+              <view class="exp-desc">{{exp.desc || exp.category || '行程消费'}}</view>
+              <view class="exp-date font-number">{{exp.date}} · {{exp.isPayer ? 'TA垫付' : exp.payerName + '垫付'}}</view>
+            </view>
+            <view class="exp-side">
+              <text class="exp-my-split font-number">分摊 ¥{{exp.mySplitAmount}}</text>
+              <text class="exp-full font-number">总计 ¥{{exp.formattedAmount}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 4. 团队消费总览与分析卡片 -->
+    <view class="team-overview-card">
+      <view class="card-title-row">
+        <text class="ct-main">📈 团队消费大数据</text>
+        <view class="copy-link touch-active" bindtap="copyGroupSummary">
+          <text class="cl-icon">📋</text>
+          <text>复制群对账文本</text>
+        </view>
+      </view>
+
+      <!-- 四宫格数据统计 -->
+      <view class="team-kpi-grid">
+        <view class="tk-item">
+          <view class="tk-val font-number">¥{{teamStats.totalExpense}}</view>
+          <view class="tk-lbl">团队总支出</view>
+        </view>
+        <view class="tk-item">
+          <view class="tk-val font-number">¥{{teamStats.perPerson}}</view>
+          <view class="tk-lbl">人均花费</view>
+        </view>
+        <view class="tk-item">
+          <view class="tk-val font-number">{{teamStats.expenseCount}} 笔</view>
+          <view class="tk-lbl">共记账笔数</view>
+        </view>
+        <view class="tk-item">
+          <view class="tk-val font-number">{{teamStats.daysCount}} 天</view>
+          <view class="tk-lbl">行程跨度</view>
+        </view>
+      </view>
+
+      <!-- 消费分类占比 -->
+      <view class="category-breakdown-section" wx:if="{{categoryStats.length > 0}}">
+        <view class="cb-title">消费分类构成</view>
+        <view class="cb-list">
+          <view class="cb-item" wx:for="{{categoryStats}}" wx:key="category">
+            <view class="cb-info">
+              <text class="cb-icon">{{item.icon}}</text>
+              <text class="cb-name">{{item.category}}</text>
+              <text class="cb-count font-number">({{item.count}}笔)</text>
+              <text class="cb-amt font-number">¥{{item.total}}</text>
+            </view>
+            <view class="cb-bar-track">
+              <view class="cb-bar-fill" style="width: {{item.percent}}%;"></view>
+            </view>
+            <view class="cb-pct font-number">{{item.percent}}%</view>
+          </view>
+        </view>
+      </view>
+
+      <!-- 全局转账清算方案 -->
+      <view class="team-transfers-section" wx:if="{{transferPlans.length > 0}}">
+        <view class="cb-title">最终平账转账清算</view>
+        <view class="tt-list">
+          <view class="tt-item {{plan.isSettled ? 'settled' : ''}}" wx:for="{{transferPlans}}" wx:for-item="plan" wx:key="id">
+            <view class="tt-flow">
+              <text class="tt-from">{{plan.from}}</text>
+              <text class="tt-arrow">👉</text>
+              <text class="tt-to">{{plan.to}}</text>
+            </view>
+            <view class="tt-money font-number">¥{{plan.amount}}</view>
+            <view class="tt-tag {{plan.isSettled ? 'tag-green' : 'tag-amber'}}">
+              <text>{{plan.isSettled ? '已结清 ✓' : '待转账'}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 5. 行前装备清单成果回顾（纯只读回顾） -->
+    <view class="checklist-recap-card" wx:if="{{readOnlyChecklist.length > 0}}">
+      <view class="card-title-row">
+        <view class="ct-with-badge">
+          <text class="ct-main">🎒 行前装备清单回顾</text>
+          <text class="ct-sub-badge font-number">{{checklistFinishedCount}} / {{teamStats.checklistTotal}} 项完成</text>
+        </view>
+      </view>
+
+      <!-- 纯只读清单列表（没有删除按钮，清爽打钩展示） -->
+      <view class="recap-list">
+        <view class="recap-item {{item.checked ? 'item-done' : ''}}" wx:for="{{readOnlyChecklist}}" wx:key="id">
+          <text class="recap-icon">{{item.checked ? '✅' : '⚪'}}</text>
+          <view class="recap-info">
+            <text class="recap-text {{item.checked ? 'done-text' : ''}}">{{item.text}}</text>
+            <view class="recap-tags">
+              <text class="recap-tag" wx:if="{{item.category}}">{{item.category}}</text>
+              <text class="recap-tag sub" wx:if="{{item.assignee}}">{{item.assignee}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 6. 底部温馨分享操作栏 -->
+    <view class="bottom-action-bar">
+      <button class="share-btn touch-active" open-type="share">
+        <text class="share-icon">📤</text>
+        <text>分享此行专属账单报告</text>
+      </button>
+    </view>
+  </block>
+</view>

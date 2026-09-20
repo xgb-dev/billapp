@@ -523,12 +523,22 @@ async loadWithOpenid() {
     }
   },
 
-  // 跳转旅行小队工作台
+  // 跳转旅行小队详情（根据状态智能分流：进行中进工作台，已结束进专属历史回顾页）
   goToTripDetail(e) {
     const tripId = e.currentTarget.dataset.id;
-    wx.navigateTo({
-      url: `/pages/trip/trip-detail?tripId=${tripId}`
-    });
+    if (!tripId) return;
+    const trip = (this.data.trips || []).find(t => t.id === tripId);
+    const status = trip ? (trip.computedStatus || getTripStatus(trip)) : 'ongoing';
+
+    if (status === 'finished') {
+      wx.navigateTo({
+        url: `/pages/trip/trip-history-detail?tripId=${tripId}`
+      });
+    } else {
+      wx.navigateTo({
+        url: `/pages/trip/trip-detail?tripId=${tripId}`
+      });
+    }
   },
 
   // 新建旅行活动

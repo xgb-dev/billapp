@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "旅行回顾与账单报告",
+  "navigationBarBackgroundColor": "#0F172A",
+  "navigationBarTextStyle": "white",
+  "backgroundColor": "#F8FAFC",
+  "enablePullDownRefresh": true
+}

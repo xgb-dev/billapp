@@ -971,7 +971,14 @@ Page({
     wx.hideLoading();
     if (res.success) {
       wx.showToast({ title: '行程已结束并归档', icon: 'success' });
-      await this.loadTripData();
+      setTimeout(() => {
+        const pages = getCurrentPages();
+        if (pages.length > 1) {
+          wx.navigateBack({ delta: 1 });
+        } else {
+          wx.reLaunch({ url: '/pages/index/index' });
+        }
+      }, 800);
     } else {
       wx.showToast({ title: res.msg || '操作失败', icon: 'none' });
     }
@@ -1016,6 +1023,13 @@ Page({
     setTimeout(() => {
       wx.navigateBack({ delta: 1 });
     }, 600);
+  },
+
+  // 跳转至专属历史回顾与队员账单报告页
+  goToHistoryDetail() {
+    wx.redirectTo({
+      url: `/pages/trip/trip-history-detail?tripId=${this.data.tripId}`
+    });
   }
 });
 

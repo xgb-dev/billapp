@@ -1,0 +1,866 @@
+/* 历史行程回顾与个人专属总结样式 */
+page {
+  background-color: #F8FAFC;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  color: #1E293B;
+  padding-bottom: 60rpx;
+}
+
+.container {
+  padding: 0 0 40rpx 0;
+  box-sizing: border-box;
+}
+
+.font-number {
+  font-family: 'DIN Alternate', 'SF Pro Display', -apple-system, sans-serif;
+}
+
+.touch-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.touch-active:active {
+  opacity: 0.85;
+  transform: scale(0.98);
+}
+
+/* 加载状态 */
+.loading-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 120rpx 0;
+}
+.loading-spinner {
+  width: 60rpx;
+  height: 60rpx;
+  border: 6rpx solid #E2E8F0;
+  border-top-color: #10B981;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 24rpx;
+}
+.loading-txt {
+  font-size: 28rpx;
+  color: #64748B;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* 1. 顶部旅行纪念大卡片 */
+.memory-hero {
+  background: linear-gradient(145deg, #0F172A 0%, #1E293B 100%);
+  color: #FFFFFF;
+  padding: 36rpx 32rpx 48rpx 32rpx;
+  border-bottom-left-radius: 40rpx;
+  border-bottom-right-radius: 40rpx;
+  box-shadow: 0 16rpx 36rpx rgba(15, 23, 42, 0.15);
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-bg-accent {
+  position: absolute;
+  top: -80rpx;
+  right: -80rpx;
+  width: 260rpx;
+  height: 260rpx;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.25) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.hero-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24rpx;
+}
+
+.badge-group {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.hero-badge {
+  font-size: 22rpx;
+  padding: 6rpx 16rpx;
+  border-radius: 20rpx;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+}
+.hero-badge.badge-finished {
+  background: rgba(255, 255, 255, 0.12);
+  color: #CBD5E1;
+}
+.hero-badge.badge-finished .dot {
+  font-size: 18rpx;
+  margin-right: 8rpx;
+  color: #94A3B8;
+}
+.hero-badge.badge-green {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34D399;
+  border: 1rpx solid rgba(16, 185, 129, 0.3);
+}
+.hero-badge.badge-amber {
+  background: rgba(245, 158, 11, 0.2);
+  color: #FBBF24;
+  border: 1rpx solid rgba(245, 158, 11, 0.3);
+}
+
+.hero-ctrls {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+.ctrl-btn {
+  font-size: 24rpx;
+  padding: 8rpx 18rpx;
+  border-radius: 24rpx;
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+}
+.ctrl-btn.reopen {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10B981;
+  border: 1rpx solid rgba(16, 185, 129, 0.4);
+}
+.ctrl-btn.del {
+  background: rgba(239, 68, 68, 0.15);
+  color: #F87171;
+  padding: 8rpx 14rpx;
+}
+
+.hero-title {
+  font-size: 44rpx;
+  font-weight: 700;
+  color: #F8FAFC;
+  line-height: 1.3;
+  margin-bottom: 16rpx;
+}
+
+.hero-meta-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20rpx;
+  margin-bottom: 24rpx;
+}
+.meta-item {
+  display: flex;
+  align-items: center;
+  font-size: 26rpx;
+  color: #94A3B8;
+}
+.meta-icon {
+  margin-right: 8rpx;
+  font-size: 26rpx;
+}
+
+.hero-members {
+  display: flex;
+  align-items: center;
+  padding-top: 16rpx;
+  border-top: 1rpx solid rgba(255, 255, 255, 0.08);
+}
+.hm-label {
+  font-size: 24rpx;
+  color: #64748B;
+  margin-right: 16rpx;
+  flex-shrink: 0;
+}
+.hm-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+}
+.hm-tag {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 4rpx 16rpx;
+  border-radius: 20rpx;
+  font-size: 22rpx;
+  color: #E2E8F0;
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+}
+.hm-tag.hm-me {
+  background: rgba(16, 185, 129, 0.25);
+  color: #34D399;
+  border: 1rpx solid rgba(16, 185, 129, 0.3);
+}
+.hm-sub {
+  font-size: 18rpx;
+  background: #10B981;
+  color: #FFFFFF;
+  padding: 2rpx 6rpx;
+  border-radius: 6rpx;
+}
+
+/* 2. 队员视角切换栏 */
+.member-selector-section {
+  padding: 28rpx 32rpx 10rpx 32rpx;
+}
+.selector-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 16rpx;
+}
+.sh-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #334155;
+}
+.sh-hint {
+  font-size: 22rpx;
+  color: #94A3B8;
+}
+.member-tabs-scroll {
+  width: 100%;
+  white-space: nowrap;
+}
+.tabs-row {
+  display: inline-flex;
+  gap: 16rpx;
+  padding: 6rpx 2rpx 14rpx 2rpx;
+}
+.member-tab-chip {
+  background: #FFFFFF;
+  border: 2rpx solid #E2E8F0;
+  border-radius: 36rpx;
+  padding: 14rpx 30rpx;
+  display: inline-flex;
+  align-items: center;
+  gap: 8rpx;
+  position: relative;
+  box-shadow: 0 4rpx 12rpx rgba(15, 23, 42, 0.03);
+}
+.tab-chip-name {
+  font-size: 26rpx;
+  color: #475569;
+  font-weight: 500;
+}
+.tab-chip-me {
+  font-size: 18rpx;
+  color: #64748B;
+  background: #F1F5F9;
+  padding: 2rpx 8rpx;
+  border-radius: 8rpx;
+}
+.member-tab-chip.active {
+  background: #1E293B;
+  border-color: #1E293B;
+  box-shadow: 0 8rpx 20rpx rgba(30, 41, 59, 0.2);
+}
+.member-tab-chip.active .tab-chip-name {
+  color: #FFFFFF;
+  font-weight: 600;
+}
+.member-tab-chip.active .tab-chip-me {
+  background: #10B981;
+  color: #FFFFFF;
+}
+
+/* 3. 【核心重点】队员专属个人账单报告卡片 */
+.personal-report-card {
+  margin: 16rpx 32rpx 32rpx 32rpx;
+  background: #FFFFFF;
+  border-radius: 32rpx;
+  padding: 36rpx 32rpx;
+  box-shadow: 0 10rpx 30rpx rgba(15, 23, 42, 0.05);
+  border: 1rpx solid #F1F5F9;
+}
+
+.report-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 28rpx;
+}
+.rh-left {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+.rh-avatar {
+  font-size: 44rpx;
+  background: #F8FAFC;
+  width: 76rpx;
+  height: 76rpx;
+  border-radius: 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1rpx solid #E2E8F0;
+}
+.rh-main-title {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #0F172A;
+}
+.role-badge {
+  font-size: 20rpx;
+  background: #EEF2FF;
+  color: #4F46E5;
+  padding: 4rpx 10rpx;
+  border-radius: 8rpx;
+  font-weight: 500;
+}
+.rh-sub-desc {
+  font-size: 24rpx;
+  color: #64748B;
+  margin-top: 4rpx;
+}
+.rh-status {
+  font-size: 22rpx;
+  padding: 6rpx 16rpx;
+  border-radius: 16rpx;
+  font-weight: 500;
+}
+.status-cleared {
+  background: #ECFDF5;
+  color: #059669;
+  border: 1rpx solid #A7F3D0;
+}
+.status-waiting {
+  background: #FEF3C7;
+  color: #D97706;
+  border: 1rpx solid #FDE68A;
+}
+
+/* 个人三大核心大数字看板 */
+.personal-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16rpx;
+  margin-bottom: 28rpx;
+}
+.kpi-box {
+  border-radius: 24rpx;
+  padding: 24rpx 16rpx;
+  text-align: center;
+  box-sizing: border-box;
+}
+.kpi-label {
+  font-size: 22rpx;
+  color: #64748B;
+  margin-bottom: 8rpx;
+}
+.kpi-value {
+  font-size: 36rpx;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.kpi-value .curr {
+  font-size: 24rpx;
+  margin-right: 2rpx;
+}
+.kpi-note {
+  font-size: 18rpx;
+  color: #94A3B8;
+  margin-top: 6rpx;
+}
+
+.box-owed {
+  background: #F0FDF4;
+  border: 1rpx solid #BBF7D0;
+}
+.box-owed .kpi-value {
+  color: #16A34A;
+}
+
+.box-paid {
+  background: #EFF6FF;
+  border: 1rpx solid #BFDBFE;
+}
+.box-paid .kpi-value {
+  color: #2563EB;
+}
+
+.box-receive {
+  background: #FFFBEB;
+  border: 1rpx solid #FDE68A;
+}
+.box-receive .kpi-value {
+  color: #D97706;
+}
+
+.box-pay {
+  background: #FFF1F2;
+  border: 1rpx solid #FECDD3;
+}
+.box-pay .kpi-value {
+  color: #E11D48;
+}
+
+.box-even {
+  background: #F8FAFC;
+  border: 1rpx solid #E2E8F0;
+}
+.box-even .kpi-value {
+  color: #475569;
+}
+
+/* 个人记账同步框 */
+.personal-sync-box {
+  background: #F8FAFC;
+  border-radius: 20rpx;
+  padding: 20rpx 24rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 28rpx;
+  border: 1rpx solid #E2E8F0;
+}
+.sync-left {
+  flex: 1;
+  margin-right: 16rpx;
+}
+.sync-title {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  margin-bottom: 4rpx;
+}
+.sync-icon {
+  font-size: 26rpx;
+}
+.sync-heading {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #1E293B;
+}
+.sync-desc {
+  font-size: 22rpx;
+  color: #64748B;
+}
+.sync-desc .highlight {
+  color: #10B981;
+  font-weight: 700;
+}
+.sync-btn {
+  background: #10B981;
+  color: #FFFFFF;
+  font-size: 24rpx;
+  font-weight: 600;
+  padding: 12rpx 24rpx;
+  border-radius: 28rpx;
+  box-shadow: 0 4rpx 12rpx rgba(16, 185, 129, 0.25);
+  flex-shrink: 0;
+}
+.sync-btn.btn-disabled {
+  background: #CBD5E1;
+  box-shadow: none;
+}
+
+/* 涉及该队员的转账轨迹 */
+.related-transfers-section {
+  margin-bottom: 28rpx;
+}
+.section-sub-title {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 14rpx;
+}
+.transfer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+.transfer-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16rpx 20rpx;
+  border-radius: 16rpx;
+  background: #F8FAFC;
+  border: 1rpx solid #E2E8F0;
+}
+.tf-left {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+.tf-badge {
+  font-size: 20rpx;
+  padding: 4rpx 10rpx;
+  border-radius: 8rpx;
+  background: #E2E8F0;
+  color: #475569;
+}
+.tf-name {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #1E293B;
+}
+.tf-right {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+.tf-amt {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #0F172A;
+}
+.tf-status {
+  font-size: 20rpx;
+  color: #059669;
+  background: #ECFDF5;
+  padding: 4rpx 10rpx;
+  border-radius: 8rpx;
+}
+
+/* 属于该队员的花销明细 */
+.personal-expenses-section {
+  border-top: 1rpx solid #F1F5F9;
+  padding-top: 24rpx;
+}
+.exp-block {
+  background: #F8FAFC;
+  border-radius: 20rpx;
+  padding: 20rpx;
+  border: 1rpx solid #E2E8F0;
+}
+.block-label {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 12rpx;
+}
+.dot-tag {
+  font-size: 20rpx;
+}
+.dot-paid {
+  color: #2563EB;
+}
+.dot-owed {
+  color: #16A34A;
+}
+.exp-empty {
+  font-size: 22rpx;
+  color: #94A3B8;
+  padding: 12rpx 0;
+  text-align: center;
+}
+.exp-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14rpx 0;
+  border-bottom: 1rpx solid #EEF2F6;
+}
+.exp-item:last-child {
+  border-bottom: none;
+}
+.exp-main {
+  flex: 1;
+}
+.exp-desc {
+  font-size: 26rpx;
+  font-weight: 500;
+  color: #1E293B;
+}
+.exp-date {
+  font-size: 20rpx;
+  color: #94A3B8;
+  margin-top: 4rpx;
+}
+.exp-side {
+  text-align: right;
+}
+.exp-total {
+  display: block;
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #0F172A;
+}
+.exp-share, .exp-my-split {
+  display: block;
+  font-size: 22rpx;
+  color: #16A34A;
+  font-weight: 600;
+}
+.exp-full {
+  display: block;
+  font-size: 20rpx;
+  color: #94A3B8;
+}
+
+/* 4. 团队消费总览卡片 */
+.team-overview-card {
+  margin: 0 32rpx 32rpx 32rpx;
+  background: #FFFFFF;
+  border-radius: 32rpx;
+  padding: 36rpx 32rpx;
+  box-shadow: 0 10rpx 30rpx rgba(15, 23, 42, 0.05);
+  border: 1rpx solid #F1F5F9;
+}
+
+.card-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24rpx;
+}
+.ct-main {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #0F172A;
+}
+.copy-link {
+  font-size: 24rpx;
+  color: #4F46E5;
+  background: #EEF2FF;
+  padding: 8rpx 18rpx;
+  border-radius: 20rpx;
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+  font-weight: 500;
+}
+
+.team-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12rpx;
+  background: #F8FAFC;
+  border-radius: 24rpx;
+  padding: 24rpx 12rpx;
+  margin-bottom: 28rpx;
+  text-align: center;
+  border: 1rpx solid #E2E8F0;
+}
+.tk-val {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #0F172A;
+}
+.tk-lbl {
+  font-size: 20rpx;
+  color: #64748B;
+  margin-top: 4rpx;
+}
+
+/* 分类占比 */
+.category-breakdown-section {
+  margin-bottom: 28rpx;
+}
+.cb-title {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 16rpx;
+}
+.cb-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+.cb-item {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+.cb-info {
+  width: 260rpx;
+  display: flex;
+  align-items: center;
+  font-size: 24rpx;
+  color: #334155;
+  flex-shrink: 0;
+}
+.cb-icon {
+  margin-right: 8rpx;
+}
+.cb-name {
+  font-weight: 500;
+  margin-right: 6rpx;
+}
+.cb-count {
+  font-size: 20rpx;
+  color: #94A3B8;
+  margin-right: 8rpx;
+}
+.cb-amt {
+  font-weight: 600;
+  color: #0F172A;
+  margin-left: auto;
+}
+.cb-bar-track {
+  flex: 1;
+  height: 12rpx;
+  background: #E2E8F0;
+  border-radius: 6rpx;
+  overflow: hidden;
+}
+.cb-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10B981, #059669);
+  border-radius: 6rpx;
+  transition: width 0.3s ease;
+}
+.cb-pct {
+  width: 60rpx;
+  text-align: right;
+  font-size: 22rpx;
+  color: #64748B;
+  font-weight: 500;
+}
+
+/* 团队转账结算 */
+.team-transfers-section {
+  border-top: 1rpx solid #F1F5F9;
+  padding-top: 24rpx;
+}
+.tt-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+.tt-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16rpx 20rpx;
+  border-radius: 16rpx;
+  background: #F8FAFC;
+  border: 1rpx solid #E2E8F0;
+}
+.tt-flow {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #1E293B;
+}
+.tt-arrow {
+  font-size: 22rpx;
+  color: #94A3B8;
+}
+.tt-money {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #0F172A;
+}
+.tt-tag {
+  font-size: 20rpx;
+  padding: 4rpx 12rpx;
+  border-radius: 12rpx;
+}
+.tag-green {
+  background: #ECFDF5;
+  color: #059669;
+}
+.tag-amber {
+  background: #FEF3C7;
+  color: #D97706;
+}
+
+/* 5. 行前装备清单成果回顾 */
+.checklist-recap-card {
+  margin: 0 32rpx 32rpx 32rpx;
+  background: #FFFFFF;
+  border-radius: 32rpx;
+  padding: 36rpx 32rpx;
+  box-shadow: 0 10rpx 30rpx rgba(15, 23, 42, 0.05);
+  border: 1rpx solid #F1F5F9;
+}
+.ct-with-badge {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+}
+.ct-sub-badge {
+  font-size: 22rpx;
+  background: #ECFDF5;
+  color: #059669;
+  padding: 4rpx 14rpx;
+  border-radius: 12rpx;
+  font-weight: 600;
+}
+.recap-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+.recap-item {
+  display: flex;
+  align-items: center;
+  padding: 14rpx 18rpx;
+  background: #F8FAFC;
+  border-radius: 16rpx;
+  border: 1rpx solid #F1F5F9;
+}
+.recap-icon {
+  margin-right: 14rpx;
+  font-size: 28rpx;
+}
+.recap-info {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.recap-text {
+  font-size: 26rpx;
+  color: #334155;
+}
+.done-text {
+  color: #0F172A;
+  font-weight: 500;
+}
+.recap-tags {
+  display: flex;
+  gap: 8rpx;
+}
+.recap-tag {
+  font-size: 20rpx;
+  background: #E2E8F0;
+  color: #475569;
+  padding: 2rpx 8rpx;
+  border-radius: 6rpx;
+}
+.recap-tag.sub {
+  background: #EEF2FF;
+  color: #4F46E5;
+}
+
+/* 6. 底部温馨分享操作栏 */
+.bottom-action-bar {
+  padding: 10rpx 32rpx;
+}
+.share-btn {
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+  color: #FFFFFF;
+  font-size: 30rpx;
+  font-weight: 600;
+  height: 96rpx;
+  line-height: 96rpx;
+  border-radius: 48rpx;
+  box-shadow: 0 12rpx 28rpx rgba(16, 185, 129, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  border: none;
+}
+.share-btn::after {
+  border: none;
+}
+.share-icon {
+  font-size: 32rpx;
+}

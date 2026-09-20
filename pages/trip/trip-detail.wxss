@@ -164,6 +164,17 @@ page {
   line-height: 1.4;
 }
 
+.ftb-btn {
+  background: #10B981;
+  color: #FFFFFF;
+  font-size: 22rpx;
+  font-weight: 600;
+  padding: 10rpx 18rpx;
+  border-radius: 20rpx;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 .del-icon, .leave-icon {
   font-size: 22rpx;
   line-height: 1;
