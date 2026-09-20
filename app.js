@@ -23,6 +23,7 @@ App({
             console.log(data)
             this.globalData.openid = data.userInfo.openid;
             this.globalData.userInfo = data.userInfo;
+            this.globalData.openidReady = true;
             resolve(data.userInfo.openid)
             // 登录成功后的逻辑
           })

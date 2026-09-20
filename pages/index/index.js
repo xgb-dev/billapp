@@ -69,8 +69,10 @@ Page({
     this.loadWithOpenid();
   },
   onShow() {
-    // 加载旅行小队活动数据
-    this.loadTrips();
+    // 仅在 openid 已就绪时才加载旅行小队数据，首次进入由 loadWithOpenid 统一处理
+    if (this.data.userOpenid) {
+      this.loadTrips();
+    }
 
     // 检查微信后台唤醒时携带的邀请口令
     try {
@@ -187,7 +189,9 @@ async loadWithOpenid() {
           { column: 'trash', operator: 'eq', value: 0 }, 
         ],
         order: 'date', // 按日期排序
-        desc: true
+        desc: true,
+        from: 0,
+        to: 9999  // 获取全部账单数据用于统计
       });
       if (statusCode != 200) throw errMsg;
 
@@ -252,6 +256,7 @@ async loadWithOpenid() {
       
       wx.hideLoading();
     } catch (error) {
+      console.error('loadAccountData 失败:', error);
       wx.hideLoading();
       wx.showToast({
         title: '加载数据失败',
