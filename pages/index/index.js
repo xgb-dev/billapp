@@ -10,7 +10,10 @@ const {
   fetchTripByIdFromCloud,
   getTripStatus,
   getTripSettlementInfo,
-  updateTrip
+  updateTrip,
+  disbandTrip,
+  hideTripForMember,
+  TRIP_STATUS
 } = require('../../utils/tripData.js');
 const {income, expense, functional} = app.globalData.iconCategories;
 Page({
@@ -380,8 +383,8 @@ async loadWithOpenid() {
       };
     });
 
-    const ongoingTrips = enrichedTrips.filter(t => t.computedStatus === 'ongoing');
-    const historyTrips = enrichedTrips.filter(t => t.computedStatus === 'finished');
+    const ongoingTrips = enrichedTrips.filter(t => t.computedStatus === TRIP_STATUS.ACTIVE || t.computedStatus === 'ongoing');
+    const historyTrips = enrichedTrips.filter(t => t.computedStatus === TRIP_STATUS.CLOSED || t.computedStatus === 'finished');
 
     this.setData({
       trips: enrichedTrips,
@@ -528,9 +531,9 @@ async loadWithOpenid() {
     const tripId = e.currentTarget.dataset.id;
     if (!tripId) return;
     const trip = (this.data.trips || []).find(t => t.id === tripId);
-    const status = trip ? (trip.computedStatus || getTripStatus(trip)) : 'ongoing';
+    const status = trip ? (trip.computedStatus || getTripStatus(trip)) : TRIP_STATUS.ACTIVE;
 
-    if (status === 'finished') {
+    if (status === TRIP_STATUS.CLOSED || status === 'finished') {
       wx.navigateTo({
         url: `/pages/trip/trip-history-detail?tripId=${tripId}`
       });
@@ -555,22 +558,77 @@ async loadWithOpenid() {
     });
   },
 
-  // 首页卡片直接删除/解散行程
+  // 首页卡片直接删除/解散行程（严格遵循状态与权限规范）
   deleteTripFromHome(e) {
     const { id, title } = e.currentTarget.dataset;
+    const trip = (this.data.trips || []).find(t => t.id === id);
+    const currentOid = this.data.userOpenid || wx.getStorageSync('openid');
+    const myTripRoles = wx.getStorageSync('MY_TRIP_ROLES') || {};
+    const isCreator = (currentOid && trip && trip._openid && trip._openid === currentOid) || (myTripRoles[id]?.role === 'creator');
+
+    // 普通成员操作：隐藏/移除个人行程
+    if (!isCreator) {
+      wx.showModal({
+        title: '移除行程确认',
+        content: `确定从您的列表中移除行程“${title || '该行程'}”吗？\n\n移除后不影响其他队员。`,
+        confirmText: '确认移除',
+        confirmColor: '#EF4444',
+        cancelText: '取消',
+        success: async (res) => {
+          if (res.confirm) {
+            wx.showLoading({ title: '正在移除...' });
+            await hideTripForMember(id);
+            await this.loadTrips();
+            wx.hideLoading();
+            wx.showToast({ title: '已移除', icon: 'success' });
+          }
+        }
+      });
+      return;
+    }
+
+    // 队长尝试解散：必须从 CLOSED 解散且 AA 全部平账
+    const status = trip ? (trip.computedStatus || getTripStatus(trip)) : TRIP_STATUS.ACTIVE;
+    if (status === TRIP_STATUS.ACTIVE || status === 'ongoing') {
+      wx.showModal({
+        title: '无法解散',
+        content: '当前行程进行中，请先进入工作台【结束行程】后再解散。',
+        showCancel: false,
+        confirmText: '我知道了',
+        confirmColor: '#10B981'
+      });
+      return;
+    }
+
+    const settlementInfo = trip ? trip.settlementInfo : getTripSettlementInfo(trip);
+    if (settlementInfo && !settlementInfo.isAllSettled) {
+      wx.showModal({
+        title: '无法解散行程',
+        content: `当前还有 ${settlementInfo.pendingCount} 笔未结清账目（待结金额 ¥${settlementInfo.pendingAmount}）。\n\n为保障账务安全，请进入详情页完成 AA 结算后再解散。`,
+        showCancel: false,
+        confirmText: '我知道了',
+        confirmColor: '#10B981'
+      });
+      return;
+    }
+
     wx.showModal({
-      title: '解散旅行小队',
-      content: `确定要删除行程“${title || '该行程'}”吗？\n删除后该行程的所有数据将无法恢复。`,
-      confirmText: '确认删除',
+      title: '解散行程确认',
+      content: `所有账目已结清。\n确定要解散行程“${title || '该行程'}”吗？\n解散后全员不可见且无法恢复。`,
+      confirmText: '确认解散',
       confirmColor: '#EF4444',
       cancelText: '取消',
       success: async (res) => {
         if (res.confirm) {
-          wx.showLoading({ title: '正在删除...' });
-          await deleteTrip(id);
-          await this.loadTrips();
+          wx.showLoading({ title: '正在解散...' });
+          const resDisband = await disbandTrip(id);
           wx.hideLoading();
-          wx.showToast({ title: '行程已删除', icon: 'none' });
+          if (resDisband.success) {
+            await this.loadTrips();
+            wx.showToast({ title: '行程已解散', icon: 'success' });
+          } else {
+            wx.showToast({ title: resDisband.msg || '解散失败', icon: 'none' });
+          }
         }
       }
     });

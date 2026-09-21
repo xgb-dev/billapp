@@ -26,13 +26,14 @@ page {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12rpx;
+  margin-bottom: 18rpx;
 }
 
 .hero-meta-left {
   display: flex;
   align-items: center;
   gap: 12rpx;
+  flex-shrink: 0;
 }
 
 .hero-tag {
@@ -40,9 +41,10 @@ page {
   font-weight: 600;
   background: rgba(16, 185, 129, 0.2);
   color: #34D399;
-  padding: 4rpx 14rpx;
+  padding: 6rpx 16rpx;
   border-radius: 12rpx;
   border: 1rpx solid rgba(52, 211, 153, 0.3);
+  white-space: nowrap;
 }
 
 .hero-tag.tag-finished {
@@ -54,8 +56,9 @@ page {
 .hero-status-sub {
   font-size: 20rpx;
   font-weight: 600;
-  padding: 3rpx 12rpx;
+  padding: 4rpx 14rpx;
   border-radius: 10rpx;
+  white-space: nowrap;
 }
 
 .hero-status-sub.status-green {
@@ -70,64 +73,77 @@ page {
   border: 1rpx solid rgba(245, 158, 11, 0.3);
 }
 
-.hero-dates {
-  font-size: 22rpx;
-  color: #94A3B8;
-}
-
 .hero-actions-right {
   display: flex;
   align-items: center;
-  gap: 10rpx;
+  gap: 14rpx;
+  flex-shrink: 0;
 }
 
 .hero-sub-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 6rpx;
-  background: rgba(148, 163, 184, 0.15);
-  border: 1rpx solid rgba(148, 163, 184, 0.3);
-  padding: 6rpx 16rpx;
-  border-radius: 20rpx;
-  color: #CBD5E1;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1rpx solid rgba(255, 255, 255, 0.25);
+  padding: 8rpx 20rpx;
+  border-radius: 24rpx;
+  color: #F1F5F9;
   font-size: 22rpx;
-  font-weight: 500;
+  font-weight: 600;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.hero-sub-btn:active {
+  background: rgba(255, 255, 255, 0.22);
 }
 
 .hero-sub-btn.reopen {
-  background: rgba(16, 185, 129, 0.15);
-  border-color: rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.2);
+  border-color: rgba(52, 211, 153, 0.45);
   color: #34D399;
 }
 
 .sub-btn-txt {
   font-size: 22rpx;
+  white-space: nowrap;
 }
 
 .hero-del-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6rpx;
   background: rgba(239, 68, 68, 0.16);
   border: 1rpx solid rgba(239, 68, 68, 0.35);
-  padding: 6rpx 16rpx;
-  border-radius: 20rpx;
+  padding: 8rpx 18rpx;
+  border-radius: 24rpx;
   color: #FCA5A5;
   font-size: 22rpx;
-  font-weight: 500;
+  font-weight: 600;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.hero-del-btn:active {
+  background: rgba(239, 68, 68, 0.28);
 }
 
 .hero-leave-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6rpx;
   background: rgba(245, 158, 11, 0.18);
   border: 1rpx solid rgba(245, 158, 11, 0.35);
-  padding: 6rpx 16rpx;
-  border-radius: 20rpx;
+  padding: 8rpx 18rpx;
+  border-radius: 24rpx;
   color: #FCD34D;
   font-size: 22rpx;
-  font-weight: 500;
+  font-weight: 600;
+  white-space: nowrap;
+  line-height: 1.2;
 }
 
 .finished-trip-banner {
@@ -186,16 +202,74 @@ page {
 }
 
 .hero-title {
-  font-size: 38rpx;
-  font-weight: 700;
+  font-size: 40rpx;
+  font-weight: 800;
   letter-spacing: -0.5rpx;
-  margin-bottom: 6rpx;
+  margin-bottom: 14rpx;
+  line-height: 1.25;
 }
 
-.hero-dest {
+.hero-meta-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14rpx 20rpx;
+  margin-bottom: 22rpx;
+}
+
+.hero-dest-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
   font-size: 26rpx;
   color: #CBD5E1;
-  margin-bottom: 16rpx;
+}
+
+.hero-dest-icon {
+  font-size: 24rpx;
+}
+
+.hero-dest-text {
+  font-weight: 500;
+}
+
+.hero-date-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8rpx;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1rpx solid rgba(255, 255, 255, 0.16);
+  border-radius: 12rpx;
+  padding: 6rpx 16rpx;
+  font-size: 24rpx;
+  color: #E2E8F0;
+  transition: all 0.2s ease;
+}
+
+.hero-date-badge.editable {
+  border: 1rpx dashed rgba(52, 211, 153, 0.5);
+  background: rgba(16, 185, 129, 0.14);
+  color: #A7F3D0;
+}
+
+.hero-date-badge.editable:active {
+  background: rgba(16, 185, 129, 0.25);
+}
+
+.hero-date-icon {
+  font-size: 22rpx;
+}
+
+.hero-date-text {
+  font-size: 24rpx;
+  font-weight: 600;
+  letter-spacing: 0.5rpx;
+}
+
+.hero-date-edit-icon {
+  font-size: 22rpx;
+  color: #34D399;
+  margin-left: 4rpx;
 }
 
 /* 6 位专属口令卡片 */
@@ -1632,6 +1706,134 @@ button.winner-confirm-btn {
   border-radius: 14rpx;
   white-space: nowrap;
   box-shadow: 0 4rpx 10rpx rgba(16, 185, 129, 0.25);
+}
+
+/* 行程日期编辑与实际出行校准弹窗样式 */
+.hero-dates.editable {
+  padding: 4rpx 12rpx;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 8rpx;
+  border: 1rpx dashed rgba(255, 255, 255, 0.35);
+  display: inline-flex;
+  align-items: center;
+}
+
+.hero-dates .date-edit-icon {
+  font-size: 22rpx;
+  color: #A7F3D0;
+  margin-left: 6rpx;
+}
+
+.modal-picker-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #F8FAFC;
+  border: 2rpx solid #E2E8F0;
+  border-radius: 12rpx;
+  padding: 20rpx 24rpx;
+}
+
+.modal-picker-val {
+  font-size: 28rpx;
+  color: #0F172A;
+  font-weight: 600;
+}
+
+.modal-picker-arrow {
+  font-size: 28rpx;
+  color: #94A3B8;
+}
+
+/* 结束行程校准卡片 */
+.finish-dates-card {
+  background: #F8FAFC;
+  border: 2rpx solid #E2E8F0;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin: 20rpx 0;
+  text-align: left;
+}
+
+.fdc-plan-row {
+  display: flex;
+  align-items: center;
+  font-size: 24rpx;
+  color: #64748B;
+  margin-bottom: 16rpx;
+  padding-bottom: 14rpx;
+  border-bottom: 1rpx dashed #CBD5E1;
+}
+
+.fdc-plan-lbl {
+  color: #64748B;
+}
+
+.fdc-plan-val {
+  color: #334155;
+  font-weight: 600;
+  margin-left: 8rpx;
+}
+
+.fdc-actual-title {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #0F172A;
+  margin-bottom: 16rpx;
+}
+
+.fdc-pickers-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.fdc-pickers-wrap picker {
+  flex: 1;
+}
+
+.fdc-picker-box {
+  background: #FFFFFF;
+  border: 2rpx solid #10B981;
+  border-radius: 14rpx;
+  padding: 16rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 2rpx 8rpx rgba(16, 185, 129, 0.08);
+}
+
+.fpb-tag {
+  font-size: 20rpx;
+  color: #059669;
+  font-weight: 600;
+  margin-bottom: 4rpx;
+}
+
+.fpb-date {
+  font-size: 26rpx;
+  color: #0F172A;
+  font-weight: 700;
+}
+
+.fdc-sep {
+  font-size: 28rpx;
+  color: #94A3B8;
+  font-weight: bold;
+}
+
+.fdc-days-tip {
+  margin-top: 20rpx;
+  font-size: 22rpx;
+  color: #64748B;
+  line-height: 1.5;
+}
+
+.fdc-days-num {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #10B981;
 }
 
 

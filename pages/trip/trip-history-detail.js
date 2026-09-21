@@ -1,5 +1,7 @@
 const app = getApp();
 const { 
+  TRIP_STATUS,
+  MEMBER_STATUS,
   fetchTripByIdFromCloud, 
   calculateAASettlement, 
   getTripSettlementInfo, 
@@ -7,7 +9,9 @@ const {
   syncTripExpensesToPersonalBills,
   getPendingPersonalSyncInfo,
   reopenTrip,
-  deleteTrip
+  disbandTrip,
+  deleteTrip,
+  resolveExpenseCategory
 } = require('../../utils/tripData.js');
 
 Page({
@@ -144,18 +148,32 @@ Page({
       const settlementInfo = getTripSettlementInfo(trip);
       const tripStatus = getTripStatus(trip);
 
-      // 2. 团队总体指标
-      const totalExpenseNum = parseFloat(settlement.totalExpense) || 0;
-      const memberCount = Math.max(members.length, 1);
-      const perPerson = (totalExpenseNum / memberCount).toFixed(2);
-
+      // 2. 团队总体指标与真实出游天数（优先按实际出行区间计算真实天数与日均开销）
+      const effStart = trip.actualStartDate || trip.startDate || '';
+      const effEnd = trip.actualEndDate || trip.endDate || '';
       let daysCount = 1;
-      if (trip.startDate && trip.endDate) {
-        const start = new Date(trip.startDate.replace(/-/g, '/'));
-        const end = new Date(trip.endDate.replace(/-/g, '/'));
-        const diffTime = Math.abs(end - start);
-        daysCount = Math.max(Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1, 1);
+      if (effStart && effEnd) {
+        try {
+          const start = new Date(effStart.replace(/-/g, '/'));
+          const end = new Date(effEnd.replace(/-/g, '/'));
+          const diffTime = Math.abs(end - start);
+          daysCount = Math.max(Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1, 1);
+        } catch (e) {}
       }
+
+      let plannedDaysCount = daysCount;
+      if (trip.startDate && trip.endDate) {
+        try {
+          const pStart = new Date(trip.startDate.replace(/-/g, '/'));
+          const pEnd = new Date(trip.endDate.replace(/-/g, '/'));
+          const pDiff = Math.abs(pEnd - pStart);
+          plannedDaysCount = Math.max(Math.round(pDiff / (1000 * 60 * 60 * 24)) + 1, 1);
+        } catch (e) {}
+      }
+
+      const totalExpenseNum = parseFloat(settlement.totalExpense) || 0;
+      const perPerson = members.length > 0 ? (totalExpenseNum / members.length).toFixed(2) : '0.00';
+      const dailyExpense = daysCount > 0 ? (totalExpenseNum / daysCount).toFixed(2) : totalExpenseNum.toFixed(2);
 
       const checklist = Array.isArray(trip.checklist) ? trip.checklist : [];
       const checklistTotal = checklist.length;
@@ -165,8 +183,10 @@ Page({
       const teamStats = {
         totalExpense: totalExpenseNum.toFixed(2),
         perPerson,
+        dailyExpense,
         expenseCount: (trip.expenses || []).length,
         daysCount,
+        plannedDaysCount,
         checklistDone,
         checklistTotal,
         checklistPercent
@@ -179,11 +199,11 @@ Page({
       const personalSummary = this.computePersonalSummary(viewingMemberName, myMemberName, trip, settlement);
 
       // 5. 查询个人同步到个人记账的状态
-      const syncCheck = getPendingPersonalSyncInfo(trip, myMemberName);
+      const syncCheck = getPendingPersonalSyncInfo ? getPendingPersonalSyncInfo(trip, myMemberName) : { count: 0, totalAmount: '0.00' };
       const syncInfo = {
-        pendingCount: syncCheck.count || 0,
-        pendingAmount: syncCheck.totalAmount || '0.00',
-        isSyncedAll: (syncCheck.count === 0)
+        pendingCount: (syncCheck && syncCheck.count) || 0,
+        pendingAmount: (syncCheck && syncCheck.totalAmount) || '0.00',
+        isSyncedAll: ((syncCheck && syncCheck.count) || 0) === 0
       };
 
       this.setData({
@@ -220,10 +240,12 @@ Page({
     }
     const catMap = {};
     expenses.forEach(exp => {
-      const cat = exp.category || '其他';
+      // 精确解析中文字支出分类与类型图标，杜绝暴露英文 ID
+      const { act, icon } = resolveExpenseCategory ? resolveExpenseCategory(exp) : { act: exp.categoryName || exp.category || '其他', icon: exp.icon || 'qita-60' };
+      const cat = act || '其他';
       const amt = parseFloat(exp.amount) || 0;
       if (!catMap[cat]) {
-        catMap[cat] = { category: cat, total: 0, count: 0 };
+        catMap[cat] = { category: cat, icon: icon, total: 0, count: 0 };
       }
       catMap[cat].total += amt;
       catMap[cat].count += 1;
@@ -231,11 +253,22 @@ Page({
 
     const categoryIcons = {
       '餐饮': '🍲', '用餐': '🍲', '美食': '🍲', '外卖': '🥡', '早餐': '🥟', '午餐': '🍱', '晚餐': '🥘',
-      '交通': '🚗', '打车': '🚕', '机票': '✈️', '火车': '🚄', '租车': '🚙', '加油': '⛽', '停车费': '🅿️',
+      '饮品': '🧋', '酒水': '🍻', '零食': '🍿', '水果': '🍎', '买菜': '🥬', '糕点': '🍰', '宵夜': '🍢',
+      '交通': '🚗', '打车': '🚕', '出租车': '🚕', '公交': '🚌', '机票': '✈️', '火车': '🚄', '租车': '🚙', 
+      '车马费': '🚗', '加油': '⛽', '停车费': '🅿️',
       '住宿': '🏨', '酒店': '🏨', '民宿': '🏡',
-      '门票': '🎟️', '景点': '🏞️', '娱乐': '🎡', '玩乐': '🎢',
-      '购物': '🛍️', '特产': '🎁', '零食': '🍿', '超市': '🛒', '饮品': '🧋', '酒水': '🍻',
-      '其他': '📦'
+      '门票': '🎟️', '景点': '🏞️', '娱乐': '🎡', '玩乐': '🎢', '电影': '🎬', '演唱会': '🎤', '游戏': '🎮', '旅游': '🧳',
+      '购物': '🛍️', '特产': '🎁', '超市': '🛒', '衣物': '👗', '数码': '📱', '家电': '🔌', '家居': '🛋️', '文具': '✏️', '鲜花': '💐', '礼物': '🎁',
+      '运动': '⚽', '药品': '💊', '就医': '🏥', '体检': '🩺', '美发': '💇', '化妆': '💄',
+      '其他': '📦', '其他支出': '📦', '生活': '🧾'
+    };
+
+    const iconToEmoji = {
+      'yongcan': '🍲', 'zaocan': '🥟', 'yinpin': '🧋', 'jiu': '🍻', 'lingshi': '🍿', 'shuiguo': '🍎', 'maicai': '🥬', 'gaodian': '🍰', 'xiaoye': '🍢',
+      'chuzuche': '🚕', 'gongjiao': '🚌', 'jipiao': '✈️', 'huoche': '🚄', 'chalv': '🚗', 'jiayou': '⛽', 'tingchefei': '🅿️',
+      'gouwu': '🛍️', 'yifu': '👗', 'shuma': '📱', 'jiadian': '🔌', 'jiaju': '🛋️', 'wenju': '✏️', 'xianhua': '💐',
+      'lvyou': '🧳', 'dianying': '🎬', 'yanchanghui': '🎤', 'youxi': '🎮', 'piaowu': '🎟️',
+      'liwu': '🎁', 'yao': '💊', 'yundong': '⚽', 'jiuyi': '🏥', 'qita-60': '📦'
     };
 
     const result = Object.keys(catMap).map(cat => {
@@ -243,7 +276,7 @@ Page({
       const percent = Math.round((item.total / totalAmount) * 100);
       return {
         category: cat,
-        icon: categoryIcons[cat] || '💳',
+        icon: categoryIcons[cat] || iconToEmoji[item.icon] || '💳',
         total: item.total.toFixed(2),
         count: item.count,
         percent
@@ -266,23 +299,24 @@ Page({
       isSettledUp: true
     };
 
+    const isMe = (targetName === myName);
     const paidNum = parseFloat(memberSummary.paid) || 0;
     const owedNum = parseFloat(memberSummary.owed) || 0;
     const balNum = parseFloat(memberSummary.balance) || 0;
 
     let balanceType = 'even';
-    let balanceText = '账目已完美平账';
+    let balanceText = isMe ? '我的账目已完美平账' : `${targetName} 的账目已完美平账`;
     if (balNum > 0.01) {
       balanceType = 'receive';
-      balanceText = `垫付较多，应收回 ¥${balNum.toFixed(2)}`;
+      balanceText = isMe ? `垫付较多，应收回 ¥${balNum.toFixed(2)}` : `${targetName} 垫付较多，应收回 ¥${balNum.toFixed(2)}`;
     } else if (balNum < -0.01) {
       balanceType = 'pay';
-      balanceText = `消费较多，需支付 ¥${Math.abs(balNum).toFixed(2)}`;
+      balanceText = isMe ? `消费较多，需支付 ¥${Math.abs(balNum).toFixed(2)}` : `${targetName} 消费较多，需支付 ¥${Math.abs(balNum).toFixed(2)}`;
     }
 
-    // 1. 我垫付的账单
+    // 1. 垫付的账单明细
     const paidExpenses = [];
-    // 2. 我参与分摊的账单
+    // 2. 参与分摊的账单明细
     const participatedExpenses = [];
 
     expenses.forEach(exp => {
@@ -291,12 +325,20 @@ Page({
       const count = Math.max(parts.length, 1);
       const splitAmt = (amt / count).toFixed(2);
 
+      // 精确解析中文字支出分类与类型图标
+      const { act, icon } = resolveExpenseCategory ? resolveExpenseCategory(exp) : { act: exp.categoryName || exp.category || '消费', icon: exp.icon || 'qita-60' };
+      const categoryChinese = act || '消费';
+      const customNote = (exp.title && exp.title !== categoryChinese) ? exp.title : (exp.remarks || '');
+
       if (exp.payer === targetName) {
         paidExpenses.push({
           ...exp,
           formattedAmount: amt.toFixed(2),
           splitCount: count,
-          myShare: splitAmt
+          myShare: splitAmt,
+          categoryChinese,
+          customNote,
+          categoryIcon: icon
         });
       }
 
@@ -307,7 +349,10 @@ Page({
           payerName: exp.payer || '队友',
           isPayer: (exp.payer === targetName),
           splitCount: count,
-          mySplitAmount: splitAmt
+          mySplitAmount: splitAmt,
+          categoryChinese,
+          customNote,
+          categoryIcon: icon
         });
       }
     });
@@ -443,26 +488,43 @@ Page({
     });
   },
 
-  // 队长解散/删除行程
-  handleDeleteTrip() {
+  // 队长解散行程（严格强制校验 AA 必须全部平账结清）
+  async handleDeleteTrip() {
     if (!this.data.isCreator) {
-      wx.showToast({ title: '仅队长可删除行程', icon: 'none' });
+      wx.showToast({ title: '仅队长可解散行程', icon: 'none' });
       return;
     }
 
+    const trip = this.data.trip;
+    const tripTitle = trip ? trip.title : '当前行程';
+
+    // 1. 强校验 AA 账目结清状态
+    const info = getTripSettlementInfo(trip);
+    if (!info.isAllSettled) {
+      wx.showModal({
+        title: '暂无法解散行程',
+        content: `当前还有 ${info.pendingCount} 笔未结清账目（共计 ¥${info.pendingAmount}）。\n\n为保障账务安全，请完成 AA 结算后再解散行程。`,
+        showCancel: false,
+        confirmText: '我知道了',
+        confirmColor: '#10B981'
+      });
+      return;
+    }
+
+    // 2. 所有账目已结清，二次确认后解散
     wx.showModal({
-      title: '删除行程确认',
-      content: `确定要彻底删除历史行程“${this.data.trip.title || '此行程'}”吗？删除后不可恢复。`,
-      confirmText: '确认删除',
+      title: '解散历史行程确认',
+      content: `所有账目已结清。\n确定要解散行程“${tripTitle}”吗？\n\n解散后所有成员都将不可见此行程，且无法恢复。`,
+      confirmText: '确认解散',
       confirmColor: '#EF4444',
       cancelText: '取消',
       success: async (res) => {
         if (res.confirm) {
-          wx.showLoading({ title: '正在删除...' });
-          const delRes = await deleteTrip(this.data.tripId);
+          wx.showLoading({ title: '正在解散...' });
+          const delRes = await disbandTrip(this.data.tripId);
           wx.hideLoading();
           if (delRes.success) {
-            wx.showToast({ title: '行程已删除', icon: 'success' });
+            wx.showToast({ title: '行程已解散', icon: 'success' });
             setTimeout(() => {
               const pages = getCurrentPages();
               if (pages.length > 1) {
@@ -472,7 +534,7 @@ Page({
               }
             }, 600);
           } else {
-            wx.showToast({ title: delRes.msg || '删除失败', icon: 'none' });
+            wx.showToast({ title: delRes.msg || '解散失败', icon: 'none' });
           }
         }
       }

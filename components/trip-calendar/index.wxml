@@ -1,0 +1,108 @@
+<view class="calendar-mask {{visible ? 'show' : ''}}" catchtouchmove="true" wx:if="{{visible}}">
+  <!-- 遮罩背景点击关闭 -->
+  <view class="mask-backdrop" bindtap="handleClose"></view>
+
+  <!-- 底部半屏日历抽屉 -->
+  <view class="calendar-drawer">
+    <!-- 1. 顶部标题栏与关闭按钮 -->
+    <view class="calendar-header">
+      <view class="cal-title-box">
+        <text class="cal-title">{{title || '选择出行日期'}}</text>
+        <text class="cal-sub">点击选择出发和返程日期，已为您标注周末及节假日</text>
+      </view>
+      <view class="cal-close-btn touch-active" bindtap="handleClose">
+        <text>✕</text>
+      </view>
+    </view>
+
+    <!-- 2. 当前选中状态卡片展示栏（严格三等分居中对称布局） -->
+    <view class="selection-banner">
+      <view class="sb-col sb-left {{currentStart ? 'active' : ''}}">
+        <view class="sb-label"><text class="sb-icon">🛫</text> 出发日期</view>
+        <view class="sb-val font-number">{{currentStart ? currentStart : '请点击选择'}}</view>
+      </view>
+
+      <view class="sb-col sb-center">
+        <view class="sb-arrow">→</view>
+        <view class="sb-days font-number {{daysCount > 0 ? 'highlight' : 'dim'}}">
+          {{daysCount > 0 ? (daysCount + '天') : '共 - 天'}}
+        </view>
+      </view>
+
+      <view class="sb-col sb-right {{currentEnd ? 'active' : ''}}">
+        <view class="sb-label"><text class="sb-icon">🛬</text> 返程日期</view>
+        <view class="sb-val font-number">{{currentEnd ? currentEnd : (currentStart ? '点击选返程' : '待选择')}}</view>
+      </view>
+    </view>
+
+    <!-- 3. 固定吸顶星期栏（周日、周六使用特色温暖标识） -->
+    <view class="week-bar">
+      <view class="week-cell weekend"><text>日</text></view>
+      <view class="week-cell"><text>一</text></view>
+      <view class="week-cell"><text>二</text></view>
+      <view class="week-cell"><text>三</text></view>
+      <view class="week-cell"><text>四</text></view>
+      <view class="week-cell"><text>五</text></view>
+      <view class="week-cell weekend"><text>六</text></view>
+    </view>
+
+    <!-- 4. 连续滚动月份日历内容区 -->
+    <scroll-view class="calendar-scroll" scroll-y="true">
+      <view class="month-block" wx:for="{{months}}" wx:key="title" wx:for-item="monthItem">
+        <!-- 月份标题 -->
+        <view class="month-header font-number">
+          <text>{{monthItem.title}}</text>
+        </view>
+
+        <!-- 7列日期网格区（以月份数字为大字淡色背景水印） -->
+        <view class="days-grid-wrap">
+          <view class="month-watermark font-number">{{monthItem.month}}</view>
+
+          <view class="days-grid">
+            <block wx:for="{{monthItem.days}}" wx:key="id" wx:for-item="day">
+              <!-- 占位空单元格 -->
+              <view class="day-cell placeholder" wx:if="{{day.isPlaceholder}}"></view>
+
+              <!-- 真实有效日期单元格 -->
+              <view 
+                wx:else 
+                class="day-cell {{day.isPast ? 'past-disabled' : ''}} {{day.isWeekend ? 'is-weekend' : ''}} {{day.isSelectedStart ? 'range-start' : ''}} {{day.isSelectedEnd ? 'range-end' : ''}} {{day.isInRange ? 'in-range' : ''}}"
+                data-date="{{day.dateStr}}"
+                data-past="{{day.isPast}}"
+                bindtap="handleDayTap"
+              >
+                <!-- 法定节假日/休假标记角标 -->
+                <view class="rest-badge" wx:if="{{day.isRest && !day.isSelectedStart && !day.isSelectedEnd}}">休</view>
+
+                <!-- 节日名称标签 -->
+                <view class="holiday-name" wx:if="{{day.holidayName && !day.isSelectedStart && !day.isSelectedEnd}}">
+                  {{day.holidayName}}
+                </view>
+
+                <!-- 日期数字 -->
+                <view class="day-number font-number">
+                  <text>{{day.dayNumber}}</text>
+                </view>
+
+                <!-- 选点角色标签（出发 / 返程 / 今天） -->
+                <view class="day-tip" wx:if="{{day.tipText}}">
+                  <text>{{day.tipText}}</text>
+                </view>
+              </view>
+            </block>
+          </view>
+        </view>
+      </view>
+    </scroll-view>
+
+    <!-- 5. 底部操作栏 -->
+    <view class="calendar-footer">
+      <view class="footer-reset-btn touch-active" bindtap="handleReset">
+        <text>重选</text>
+      </view>
+      <view class="footer-confirm-btn touch-active {{currentStart ? 'active' : 'disabled'}}" bindtap="handleConfirm">
+        <text>{{daysCount > 0 ? ('确定出行 (' + daysCount + '天)') : '请选择出行日期'}}</text>
+      </view>
+    </view>
+  </view>
+</view>

@@ -2,6 +2,9 @@
   "navigationBarTitleText": "创建旅行小队",
   "navigationBarBackgroundColor": "#F7F9FC",
   "navigationBarTextStyle": "black",
-  "backgroundColor": "#F7F9FC"
+  "backgroundColor": "#F7F9FC",
+  "usingComponents": {
+    "trip-calendar": "/components/trip-calendar/index"
+  }
 }
 

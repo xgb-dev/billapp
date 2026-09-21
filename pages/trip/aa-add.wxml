@@ -50,14 +50,17 @@
       <!-- 快捷常用分类横滑选择栏 -->
       <view class="quick-category-section">
         <view class="quick-cat-head">
-          <text class="quick-cat-tip">支出类型快捷选择：</text>
+          <view class="quick-cat-tip-box">
+            <text class="quick-cat-tip">支出类型快捷选择：</text>
+            <text class="quick-cat-selected-badge" wx:if="{{selectedCategoryName}}">{{selectedCategoryName}}</text>
+          </view>
           <view class="more-cat-link" bindtap="openCategoryModal">全部分类 ›</view>
         </view>
         <scroll-view scroll-x class="quick-cat-scroll" enable-flex>
           <view 
             wx:for="{{popularCategories}}" 
             wx:key="id" 
-            class="quick-cat-pill {{title === item.name || selectedCategoryId === item.id ? 'active' : ''}}" 
+            class="quick-cat-pill {{selectedCategoryId === item.id || selectedCategoryName === item.name || title === item.name ? 'active' : ''}}" 
             bindtap="selectQuickCategory"
             data-id="{{item.id}}"
             data-name="{{item.name}}"
@@ -230,7 +233,7 @@
           <view 
             wx:for="{{allCategories}}" 
             wx:key="id" 
-            class="drawer-cat-item touch-active {{title === item.name || selectedCategoryId === item.id ? 'active' : ''}}"
+            class="drawer-cat-item touch-active {{title === item.name || selectedCategoryId === item.id || selectedCategoryName === item.name ? 'active' : ''}}"
             bindtap="selectDrawerCategory"
             data-id="{{item.id}}"
             data-name="{{item.name}}"

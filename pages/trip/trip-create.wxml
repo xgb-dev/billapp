@@ -33,17 +33,27 @@
 
     <view class="divider"></view>
 
-    <!-- 出行日期 -->
-    <view class="form-item">
-      <text class="item-label">出行日期</text>
-      <view class="date-pickers-wrap">
-        <picker mode="date" value="{{startDate}}" bindchange="onStartDateChange">
-          <view class="date-btn font-number">{{startDate}}</view>
-        </picker>
-        <text class="date-sep">至</text>
-        <picker mode="date" value="{{endDate}}" start="{{startDate}}" bindchange="onEndDateChange">
-          <view class="date-btn font-number">{{endDate}}</view>
-        </picker>
+    <!-- 出行日期（专属高颜值旅行日历唤起卡片） -->
+    <view class="form-item date-form-item">
+      <view class="date-header-row">
+        <text class="item-label">出行日期</text>
+        <text class="date-calendar-hint font-number" wx:if="{{daysCount > 0}}">共 {{daysCount}} 天</text>
+      </view>
+      <view class="calendar-trigger-card touch-active" bindtap="openCalendar">
+        <view class="ctc-col ctc-left">
+          <text class="ctc-tag">🛫 出发</text>
+          <text class="ctc-date font-number {{startDate ? 'active' : ''}}">{{startDate || '请选择'}}</text>
+          <text class="ctc-week font-number" wx:if="{{startWeekStr}}">{{startWeekStr}}</text>
+        </view>
+        <view class="ctc-col ctc-center">
+          <text class="ctc-arrow">→</text>
+          <text class="ctc-days font-number {{daysCount > 0 ? 'highlight' : 'dim'}}">{{daysCount > 0 ? (daysCount + '天') : '选择日期'}}</text>
+        </view>
+        <view class="ctc-col ctc-right">
+          <text class="ctc-tag">🛬 返程</text>
+          <text class="ctc-date font-number {{endDate ? 'active' : ''}}">{{endDate || '请选择'}}</text>
+          <text class="ctc-week font-number" wx:if="{{endWeekStr}}">{{endWeekStr}}</text>
+        </view>
       </view>
     </view>
   </view>
@@ -136,5 +146,16 @@
       </view>
     </view>
   </view>
+
+  <!-- 专属高颜值旅行日历组件 -->
+  <trip-calendar 
+    visible="{{showCalendar}}"
+    startDate="{{startDate}}"
+    endDate="{{endDate}}"
+    minDate="{{minDate}}"
+    title="选择小队出行日期"
+    bind:confirm="onCalendarConfirm"
+    bind:close="closeCalendar"
+  />
 </view>
 

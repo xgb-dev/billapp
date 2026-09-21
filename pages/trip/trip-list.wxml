@@ -36,7 +36,7 @@
         <view class="tc-top">
           <view class="tc-title-wrap">
             <text class="tc-title">{{item.title}}</text>
-            <view class="tc-status-tag tag-ongoing" wx:if="{{item.computedStatus === 'ongoing'}}">
+            <view class="tc-status-tag tag-ongoing" wx:if="{{item.computedStatus === 'ACTIVE' || item.computedStatus === 'ongoing'}}">
               <text class="dot">●</text> 进行中
             </view>
             <view class="tc-status-tag tag-settled" wx:elif="{{item.settlementInfo.isAllSettled}}">
@@ -74,11 +74,15 @@
             <text class="code-val">{{item.code}}</text>
           </view>
           <view class="tc-actions">
-            <view class="tc-del-btn touch-active" catchtap="handleDeleteTrip" data-id="{{item.id}}" data-title="{{item.title}}">
+            <!-- 队长显示解散，普通成员显示移除（从个人列表中隐藏） -->
+            <view class="tc-del-btn touch-active" wx:if="{{item.isCreator}}" catchtap="handleDisbandTrip" data-id="{{item.id}}" data-title="{{item.title}}">
               <text>解散</text>
             </view>
+            <view class="tc-hide-btn touch-active" wx:else catchtap="handleHideTrip" data-id="{{item.id}}" data-title="{{item.title}}">
+              <text>移除</text>
+            </view>
             <view class="tc-enter-btn">
-              <text>{{item.computedStatus === 'finished' ? '查账回顾 ›' : '进入详情 ›'}}</text>
+              <text>{{item.computedStatus === 'CLOSED' || item.computedStatus === 'finished' ? '查账回顾 ›' : '进入详情 ›'}}</text>
             </view>
           </view>
         </view>

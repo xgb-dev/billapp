@@ -1,0 +1,431 @@
+/* components/trip-calendar/index.wxss */
+.font-number {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+.calendar-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  visibility: hidden;
+  transition: visibility 0.25s ease;
+}
+
+.calendar-mask.show {
+  visibility: visible;
+}
+
+.mask-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4rpx);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.calendar-mask.show .mask-backdrop {
+  opacity: 1;
+}
+
+/* 底部抽屉主体 */
+.calendar-drawer {
+  position: relative;
+  width: 100%;
+  height: 82vh;
+  max-height: 1400rpx;
+  background: #FFFFFF;
+  border-top-left-radius: 36rpx;
+  border-top-right-radius: 36rpx;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 -8rpx 30rpx rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+}
+
+.calendar-mask.show .calendar-drawer {
+  transform: translateY(0);
+}
+
+/* 1. 顶部标题栏 */
+.calendar-header {
+  padding: 32rpx 36rpx 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1rpx solid #F1F5F9;
+  flex-shrink: 0;
+}
+
+.cal-title-box {
+  display: flex;
+  flex-direction: column;
+}
+
+.cal-title {
+  font-size: 34rpx;
+  font-weight: 800;
+  color: #0F172A;
+  letter-spacing: 0.5rpx;
+}
+
+.cal-sub {
+  font-size: 22rpx;
+  color: #64748B;
+  margin-top: 6rpx;
+}
+
+.cal-close-btn {
+  width: 60rpx;
+  height: 60rpx;
+  border-radius: 50%;
+  background: #F1F5F9;
+  color: #64748B;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+/* 2. 出发与返程选中卡片展示栏（严格 1:1:1 三等分布局） */
+.selection-banner {
+  margin: 16rpx 28rpx;
+  background: #F8FAFC;
+  border: 2rpx solid #E2E8F0;
+  border-radius: 20rpx;
+  padding: 20rpx 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.sb-col {
+  flex: 1;
+  width: 33.333%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.sb-label {
+  font-size: 22rpx;
+  color: #64748B;
+  margin-bottom: 8rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.2;
+}
+
+.sb-icon {
+  margin-right: 6rpx;
+  font-size: 20rpx;
+}
+
+.sb-val {
+  font-size: 28rpx;
+  color: #94A3B8;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.sb-col.active .sb-val {
+  color: #10B981;
+}
+
+.sb-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.sb-arrow {
+  font-size: 26rpx;
+  color: #94A3B8;
+  font-weight: bold;
+  line-height: 1.2;
+  margin-bottom: 8rpx;
+}
+
+.sb-days {
+  font-size: 20rpx;
+  font-weight: 700;
+  line-height: 1.2;
+  padding: 4rpx 16rpx;
+  border-radius: 12rpx;
+  white-space: nowrap;
+}
+
+.sb-days.highlight {
+  color: #10B981;
+  background: #ECFDF5;
+  border: 1rpx solid #A7F3D0;
+}
+
+.sb-days.dim {
+  color: #94A3B8;
+  background: #F1F5F9;
+}
+
+/* 3. 吸顶星期栏（周日、周六使用特色温暖标识） */
+.week-bar {
+  display: flex;
+  align-items: center;
+  height: 64rpx;
+  background: #FFFFFF;
+  border-bottom: 1rpx solid #F1F5F9;
+  flex-shrink: 0;
+  padding: 0 12rpx;
+}
+
+.week-cell {
+  flex: 1;
+  text-align: center;
+  font-size: 24rpx;
+  color: #64748B;
+  font-weight: 600;
+}
+
+.week-cell.weekend {
+  color: #F97316; /* 周末温暖橙色标识 */
+}
+
+/* 4. 日历滚动区域 */
+.calendar-scroll {
+  flex: 1;
+  overflow-y: scroll;
+  -webkit-overflow-scrolling: touch;
+  padding: 10rpx 12rpx 40rpx;
+  box-sizing: border-box;
+}
+
+.month-block {
+  margin-bottom: 32rpx;
+}
+
+.month-header {
+  padding: 24rpx 16rpx 12rpx;
+  font-size: 30rpx;
+  font-weight: 800;
+  color: #1E293B;
+}
+
+.days-grid-wrap {
+  position: relative;
+  overflow: hidden;
+}
+
+/* 月份数字背景大水印（极淡雅，居中置底） */
+.month-watermark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 440rpx;
+  font-weight: 900;
+  line-height: 1;
+  color: rgba(100, 116, 139, 0.055);
+  pointer-events: none;
+  z-index: 0;
+  user-select: none;
+  letter-spacing: -10rpx;
+}
+
+.days-grid {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.day-cell {
+  width: 14.285%;
+  height: 116rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  box-sizing: border-box;
+  margin-bottom: 8rpx;
+}
+
+.day-cell.placeholder {
+  pointer-events: none;
+}
+
+/* 正常日期数字 */
+.day-number {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #1E293B;
+  line-height: 1.2;
+  z-index: 2;
+}
+
+/* 周末日期醒目色彩 */
+.day-cell.is-weekend .day-number {
+  color: #EA580C;
+}
+
+/* 过去历史日期：全面置灰禁用不可点击 */
+.day-cell.past-disabled {
+  pointer-events: none;
+  opacity: 0.35;
+}
+
+.day-cell.past-disabled .day-number {
+  color: #94A3B8 !important;
+}
+
+/* 法定节假日“休”字精美角标 */
+.rest-badge {
+  position: absolute;
+  top: 6rpx;
+  right: 12rpx;
+  font-size: 16rpx;
+  line-height: 1;
+  color: #DC2626;
+  background: #FEE2E2;
+  border-radius: 6rpx;
+  padding: 3rpx 6rpx;
+  font-weight: 700;
+  z-index: 3;
+}
+
+/* 节日名称 */
+.holiday-name {
+  font-size: 18rpx;
+  color: #DC2626;
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: 2rpx;
+  max-width: 90%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  z-index: 2;
+}
+
+/* 底部选点提示（出发 / 返程 / 今天） */
+.day-tip {
+  font-size: 18rpx;
+  font-weight: 700;
+  color: #64748B;
+  line-height: 1;
+  margin-top: 4rpx;
+  z-index: 2;
+}
+
+/* 选中出发状态 */
+.day-cell.range-start {
+  background: #10B981 !important;
+  color: #FFFFFF !important;
+  border-top-left-radius: 20rpx;
+  border-bottom-left-radius: 20rpx;
+}
+
+.day-cell.range-start .day-number,
+.day-cell.range-start .day-tip,
+.day-cell.range-start .holiday-name {
+  color: #FFFFFF !important;
+}
+
+/* 选中返程状态 */
+.day-cell.range-end {
+  background: #10B981 !important;
+  color: #FFFFFF !important;
+  border-top-right-radius: 20rpx;
+  border-bottom-right-radius: 20rpx;
+}
+
+.day-cell.range-end .day-number,
+.day-cell.range-end .day-tip,
+.day-cell.range-end .holiday-name {
+  color: #FFFFFF !important;
+}
+
+/* 当天出发且当天返程 */
+.day-cell.range-start.range-end {
+  border-radius: 20rpx !important;
+}
+
+/* 区间中间日期高亮连线 */
+.day-cell.in-range {
+  background: #ECFDF5;
+}
+
+.day-cell.in-range .day-number {
+  color: #065F46;
+}
+
+.day-cell.in-range .day-tip {
+  color: #059669;
+}
+
+/* 5. 底部操作栏 */
+.calendar-footer {
+  padding: 20rpx 32rpx;
+  padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  border-top: 1rpx solid #F1F5F9;
+  background: #FFFFFF;
+  flex-shrink: 0;
+}
+
+.footer-reset-btn {
+  width: 140rpx;
+  height: 84rpx;
+  border-radius: 42rpx;
+  background: #F1F5F9;
+  color: #475569;
+  font-size: 28rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.footer-confirm-btn {
+  flex: 1;
+  height: 84rpx;
+  border-radius: 42rpx;
+  background: #10B981;
+  color: #FFFFFF;
+  font-size: 30rpx;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6rpx 16rpx rgba(16, 185, 129, 0.25);
+  transition: all 0.2s ease;
+}
+
+.footer-confirm-btn.disabled {
+  background: #E2E8F0;
+  color: #94A3B8;
+  box-shadow: none;
+  pointer-events: none;
+}

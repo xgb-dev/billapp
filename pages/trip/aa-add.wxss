@@ -243,9 +243,25 @@ page {
   margin-bottom: 16rpx;
 }
 
+.quick-cat-tip-box {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+}
+
 .quick-cat-tip {
   font-size: 22rpx;
   color: #64748B;
+}
+
+.quick-cat-selected-badge {
+  font-size: 20rpx;
+  font-weight: 700;
+  color: #10B981;
+  background: #ECFDF5;
+  border: 1rpx solid #A7F3D0;
+  padding: 2rpx 14rpx;
+  border-radius: 20rpx;
 }
 
 .more-cat-link {

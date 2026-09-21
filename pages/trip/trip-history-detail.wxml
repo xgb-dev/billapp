@@ -40,9 +40,10 @@
             <text class="meta-icon">📍</text>
             <text class="meta-text">{{trip.destination || '随性游'}}</text>
           </view>
-          <view class="meta-item" wx:if="{{trip.startDate}}">
+          <view class="meta-item" wx:if="{{trip.actualStartDate || trip.startDate}}">
             <text class="meta-icon">🗓️</text>
-            <text class="meta-text">{{trip.startDate}} ~ {{trip.endDate}} (共{{teamStats.daysCount}}天)</text>
+            <text class="meta-text" wx:if="{{trip.actualStartDate && trip.actualEndDate && (trip.actualStartDate !== trip.startDate || trip.actualEndDate !== trip.endDate)}}">实际：{{trip.actualStartDate}} ~ {{trip.actualEndDate}} (共{{teamStats.daysCount}}天 · 原计划{{teamStats.plannedDaysCount}}天)</text>
+            <text class="meta-text" wx:else>{{trip.startDate || trip.actualStartDate}} ~ {{trip.endDate || trip.actualEndDate}} (共{{teamStats.daysCount}}天)</text>
           </view>
         </view>
 
@@ -108,7 +109,7 @@
           <view class="kpi-value font-number">
             <text class="curr">¥</text>{{personalSummary.owed}}
           </view>
-          <view class="kpi-note">真正属于TA的花费</view>
+          <view class="kpi-note">{{personalSummary.isMe ? '真正属于我的花费' : '属于 ' + personalSummary.name + ' 的花费'}}</view>
         </view>
 
         <view class="kpi-box box-paid">
@@ -116,7 +117,7 @@
           <view class="kpi-value font-number">
             <text class="curr">¥</text>{{personalSummary.paid}}
           </view>
-          <view class="kpi-note">为团队掏钱包垫付</view>
+          <view class="kpi-note">{{personalSummary.isMe ? '我为团队掏钱垫付' : personalSummary.name + ' 为团队垫付'}}</view>
         </view>
 
         <view class="kpi-box {{personalSummary.balanceType === 'receive' ? 'box-receive' : (personalSummary.balanceType === 'pay' ? 'box-pay' : 'box-even')}}">
@@ -176,18 +177,22 @@
       <view class="personal-expenses-section">
         <view class="section-sub-title">🧾 个人账单明细拆解</view>
         
-        <!-- 我垫付的账单 -->
+        <!-- 我/队员垫付的账单 -->
         <view class="exp-block">
           <view class="block-label">
             <text class="dot-tag dot-paid">●</text>
-            <text>TA掏钱垫付的单子 ({{personalSummary.paidExpenses.length}}笔)</text>
+            <text>{{personalSummary.isMe ? '我掏钱垫付的单子' : personalSummary.name + ' 垫付的单子'}} ({{personalSummary.paidExpenses.length}}笔)</text>
           </view>
           <view class="exp-empty" wx:if="{{personalSummary.paidExpenses.length === 0}}">
-            未垫付支出
+            {{personalSummary.isMe ? '我暂未垫付支出' : personalSummary.name + ' 暂未垫付支出'}}
           </view>
           <view class="exp-item" wx:for="{{personalSummary.paidExpenses}}" wx:for-item="exp" wx:key="id">
             <view class="exp-main">
-              <view class="exp-desc">{{exp.desc || exp.category || '行程消费'}}</view>
+              <view class="exp-title-row">
+                <text class="iconfont icon-a-068_{{exp.categoryIcon}} exp-cat-icon" wx:if="{{exp.categoryIcon}}"></text>
+                <text class="exp-desc">{{exp.categoryChinese || '消费'}}</text>
+                <text class="exp-custom-note" wx:if="{{exp.customNote}}">({{exp.customNote}})</text>
+              </view>
               <view class="exp-date font-number">{{exp.date}} · 全队{{exp.splitCount}}人AA</view>
             </view>
             <view class="exp-side">
@@ -197,19 +202,23 @@
           </view>
         </view>
 
-        <!-- 我参与分摊的账单 -->
+        <!-- 我/队员参与分摊的账单 -->
         <view class="exp-block" style="margin-top: 24rpx;">
           <view class="block-label">
             <text class="dot-tag dot-owed">●</text>
-            <text>TA参与分摊的单子 ({{personalSummary.participatedExpenses.length}}笔)</text>
+            <text>{{personalSummary.isMe ? '我参与分摊的单子' : personalSummary.name + ' 参与分摊的单子'}} ({{personalSummary.participatedExpenses.length}}笔)</text>
           </view>
           <view class="exp-empty" wx:if="{{personalSummary.participatedExpenses.length === 0}}">
-            未参与任何账单分摊
+            {{personalSummary.isMe ? '我未参与任何账单分摊' : personalSummary.name + ' 未参与任何账单分摊'}}
           </view>
           <view class="exp-item" wx:for="{{personalSummary.participatedExpenses}}" wx:for-item="exp" wx:key="id">
             <view class="exp-main">
-              <view class="exp-desc">{{exp.desc || exp.category || '行程消费'}}</view>
-              <view class="exp-date font-number">{{exp.date}} · {{exp.isPayer ? 'TA垫付' : exp.payerName + '垫付'}}</view>
+              <view class="exp-title-row">
+                <text class="iconfont icon-a-068_{{exp.categoryIcon}} exp-cat-icon" wx:if="{{exp.categoryIcon}}"></text>
+                <text class="exp-desc">{{exp.categoryChinese || '消费'}}</text>
+                <text class="exp-custom-note" wx:if="{{exp.customNote}}">({{exp.customNote}})</text>
+              </view>
+              <view class="exp-date font-number">{{exp.date}} · {{exp.isPayer ? (personalSummary.isMe ? '我垫付' : personalSummary.name + '垫付') : exp.payerName + '垫付'}}</view>
             </view>
             <view class="exp-side">
               <text class="exp-my-split font-number">分摊 ¥{{exp.mySplitAmount}}</text>
@@ -241,12 +250,12 @@
           <view class="tk-lbl">人均花费</view>
         </view>
         <view class="tk-item">
-          <view class="tk-val font-number">{{teamStats.expenseCount}} 笔</view>
-          <view class="tk-lbl">共记账笔数</view>
+          <view class="tk-val font-number">¥{{teamStats.dailyExpense}}</view>
+          <view class="tk-lbl">日均开销</view>
         </view>
         <view class="tk-item">
           <view class="tk-val font-number">{{teamStats.daysCount}} 天</view>
-          <view class="tk-lbl">行程跨度</view>
+          <view class="tk-lbl">实际出行跨度</view>
         </view>
       </view>
 

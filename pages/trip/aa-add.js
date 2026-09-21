@@ -37,6 +37,7 @@ Page({
     // 全量个人支出分类
     allCategories: (iconCategories && iconCategories.expense) ? iconCategories.expense : [],
     selectedCategoryId: '',
+    selectedCategoryName: '',
     selectedCategoryIcon: '',
     showCategoryModal: false
   },
@@ -55,6 +56,13 @@ Page({
     if (!trip) {
       wx.showToast({ title: '活动不存在', icon: 'none' });
       setTimeout(() => wx.navigateBack(), 1000);
+      return;
+    }
+
+    const status = (trip.status || '').toUpperCase();
+    if (status === 'CLOSED' || status === 'FINISHED' || status === 'DISBANDED') {
+      wx.showToast({ title: '行程已结束，不可记账', icon: 'none' });
+      setTimeout(() => wx.navigateBack(), 1200);
       return;
     }
 
@@ -267,18 +275,29 @@ Page({
   onTitleInput(e) {
     const val = e.detail.value;
     let selectedCategoryId = this.data.selectedCategoryId;
+    let selectedCategoryName = this.data.selectedCategoryName;
     let selectedCategoryIcon = this.data.selectedCategoryIcon;
-    // 如果手写内容与选中的分类不同，清除特定选中高亮
-    const matchedCat = this.data.allCategories.find(c => c.name === val.trim());
+    const trimmed = val.trim();
+
+    // 优先匹配全量分类名
+    const matchedCat = this.data.allCategories.find(c => c.name === trimmed);
     if (matchedCat) {
       selectedCategoryId = matchedCat.id;
+      selectedCategoryName = matchedCat.name;
       selectedCategoryIcon = matchedCat.icon;
-    } else {
-      selectedCategoryId = '';
+    } else if (!selectedCategoryName) {
+      // 若用户手写且尚未选择分类，尝试根据关键词自动推荐分类
+      const autoMatch = this.data.allCategories.find(c => trimmed.includes(c.name) || (c.name.length >= 2 && trimmed.indexOf(c.name) >= 0));
+      if (autoMatch) {
+        selectedCategoryId = autoMatch.id;
+        selectedCategoryName = autoMatch.name;
+        selectedCategoryIcon = autoMatch.icon;
+      }
     }
     this.setData({
       title: val,
       selectedCategoryId,
+      selectedCategoryName,
       selectedCategoryIcon
     });
   },
@@ -288,16 +307,18 @@ Page({
     this.setData({
       title: '',
       selectedCategoryId: '',
+      selectedCategoryName: '',
       selectedCategoryIcon: ''
     });
   },
 
-  // 选择常用快捷分类
+  // 选择常用快捷分类（同时记住图标和中文名）
   selectQuickCategory(e) {
     const { id, name, icon } = e.currentTarget.dataset;
     this.setData({
       title: name,
       selectedCategoryId: id,
+      selectedCategoryName: name,
       selectedCategoryIcon: icon
     });
   },
@@ -315,12 +336,13 @@ Page({
     this.setData({ showCategoryModal: false });
   },
 
-  // 在抽屉中选择分类
+  // 在抽屉中选择分类（同时记住图标和中文名）
   selectDrawerCategory(e) {
     const { id, name, icon } = e.currentTarget.dataset;
     this.setData({
       title: name,
       selectedCategoryId: id,
+      selectedCategoryName: name,
       selectedCategoryIcon: icon,
       showCategoryModal: false
     });
@@ -380,7 +402,7 @@ Page({
 
   // 提交保存这笔集体 AA（直接 await 写入 Supabase 云端数据库）
   async submitExpense() {
-    let { title, amount, amountExpr, isOperating, payer, participants, date, remarks, trip, selectedCategoryId, selectedCategoryIcon } = this.data;
+    let { title, amount, amountExpr, isOperating, payer, participants, date, remarks, trip, selectedCategoryId, selectedCategoryName, selectedCategoryIcon } = this.data;
 
     if (!title.trim()) {
       wx.showToast({ title: '请填写消费项目', icon: 'none' });
@@ -404,16 +426,38 @@ Page({
       return;
     }
 
+    // 严密匹配中文字支出类型与类型图标
+    let catName = selectedCategoryName;
+    let catIcon = selectedCategoryIcon;
+    let catId = selectedCategoryId;
+
+    if (!catName || !catIcon) {
+      const match = this.data.allCategories.find(c => c.name === title.trim())
+        || this.data.allCategories.find(c => title.trim().includes(c.name));
+      if (match) {
+        catName = match.name;
+        catIcon = match.icon;
+        catId = match.id;
+      }
+    }
+
+    catName = catName || title.trim() || '其他支出';
+    catIcon = catIcon || 'qita-60';
+    catId = catId || 'qita-expense';
+
     const newExpense = {
       id: 'exp_' + Date.now(),
-      title: title.trim(),
+      title: title.trim(), // 消费项目或用户手写的详细描述（例如“大理石锅鱼”或“用餐”）
+      desc: title.trim(),
+      category: catName, // 支出类型中文字（如“用餐”、“出租车”、“加油”）
+      categoryName: catName, // 明确保存中文字类型
+      categoryId: catId, // 分类ID
+      icon: catIcon, // 类型图标（如 "yongcan"）
       amount: amtNum.toFixed(2),
       payer,
       participants,
       date,
-      remarks: (remarks || '').trim(),
-      category: selectedCategoryId || '',
-      icon: selectedCategoryIcon || ''
+      remarks: (remarks || '').trim()
     };
 
     const updatedTrip = { ...trip };

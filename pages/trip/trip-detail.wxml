@@ -3,34 +3,51 @@
   <view class="trip-hero-card">
     <view class="hero-top">
       <view class="hero-meta-left">
-        <view class="hero-tag {{tripStatus === 'finished' ? 'tag-finished' : ''}}">
-          {{tripStatus === 'finished' ? '已结束' : '旅行小队'}}
+        <view class="hero-tag {{tripStatus === 'CLOSED' || tripStatus === 'finished' ? 'tag-finished' : 'tag-active'}}">
+          {{tripStatus === 'CLOSED' || tripStatus === 'finished' ? '⚪ 已结束' : '🟢 进行中'}}
         </view>
-        <view class="hero-status-sub {{settlementInfo.isAllSettled ? 'status-green' : 'status-amber'}}" wx:if="{{tripStatus === 'finished'}}">
+        <view class="hero-status-sub {{settlementInfo.isAllSettled ? 'status-green' : 'status-amber'}}" wx:if="{{tripStatus === 'CLOSED' || tripStatus === 'finished'}}">
           {{settlementInfo.isAllSettled ? '已平账' : '待平账'}}
         </view>
-        <view class="hero-dates" wx:if="{{trip.startDate}}">{{trip.startDate}} ~ {{trip.endDate}}</view>
       </view>
       <view class="hero-actions-right">
-        <!-- 结束/重启行程按钮（队长可用） -->
-        <view class="hero-sub-btn touch-active" bindtap="handleFinishTrip" wx:if="{{isCreator && tripStatus === 'ongoing'}}">
+        <!-- 结束行程按钮（仅队长在 ACTIVE 时可用） -->
+        <view class="hero-sub-btn touch-active" bindtap="handleFinishTrip" wx:if="{{isCreator && (tripStatus === 'ACTIVE' || tripStatus === 'ongoing')}}">
           <text class="sub-btn-txt">结束行程</text>
         </view>
-        <view class="hero-sub-btn reopen touch-active" bindtap="handleReopenTrip" wx:if="{{isCreator && tripStatus === 'finished'}}">
+        <!-- 重新开启按钮（仅队长在 CLOSED 时可用） -->
+        <view class="hero-sub-btn reopen touch-active" bindtap="handleReopenTrip" wx:if="{{isCreator && (tripStatus === 'CLOSED' || tripStatus === 'finished')}}">
           <text class="sub-btn-txt">重新开启</text>
         </view>
+        <!-- 解散行程按钮（仅队长可用：ACTIVE 时点击会提示先结束，CLOSED 时检查 AA） -->
         <view class="hero-del-btn touch-active" bindtap="handleDeleteTrip" wx:if="{{isCreator}}">
           <text class="del-icon">🗑️</text>
           <text class="del-txt">解散</text>
         </view>
+        <!-- 离开小队按钮（普通队员可用） -->
         <view class="hero-leave-btn touch-active" bindtap="handleLeaveTrip" wx:else>
           <text class="leave-icon">🚪</text>
-          <text class="leave-txt">退出</text>
+          <text class="leave-txt">离开小队</text>
         </view>
       </view>
     </view>
+
+    <!-- 活动标题 -->
     <view class="hero-title">{{trip.title}}</view>
-    <view class="hero-dest">📍 {{trip.destination || '目的地待定'}}</view>
+
+    <!-- 活动基础元信息行（目的地与出行日期胶囊，空间宽裕不拥挤） -->
+    <view class="hero-meta-row">
+      <view class="hero-dest-wrap">
+        <text class="hero-dest-icon">📍</text>
+        <text class="hero-dest-text">{{trip.destination || '目的地待定'}}</text>
+      </view>
+      
+      <view class="hero-date-badge {{isCreator && (tripStatus === 'ACTIVE' || tripStatus === 'ongoing') ? 'editable touch-active' : ''}}" bindtap="{{isCreator && (tripStatus === 'ACTIVE' || tripStatus === 'ongoing') ? 'openEditDatesModal' : ''}}">
+        <text class="hero-date-icon">📅</text>
+        <text class="hero-date-text font-number">{{trip.startDate ? (trip.startDate + ' ~ ' + trip.endDate) : (isCreator ? '设置行程日期' : '未设日期')}}</text>
+        <text class="hero-date-edit-icon" wx:if="{{trip.startDate && isCreator && (tripStatus === 'ACTIVE' || tripStatus === 'ongoing')}}">✎</text>
+      </view>
+    </view>
 
     <!-- 6 位加入口令与邀请栏 -->
     <view class="invite-code-card" wx:if="{{trip.code}}">
@@ -74,7 +91,7 @@
   </view>
 
   <!-- 历史已结束行程提示条 -->
-  <view class="finished-trip-banner" wx:if="{{tripStatus === 'finished'}}">
+  <view class="finished-trip-banner" wx:if="{{tripStatus === 'CLOSED' || tripStatus === 'finished'}}">
     <text class="ftb-icon">ℹ️</text>
     <view class="ftb-content">
       <text class="ftb-title">此行程已归档至历史记录</text>
@@ -164,7 +181,7 @@
             <text class="item-assignee">👤 {{item.assignee || '所有人'}}</text>
           </view>
         </view>
-        <view class="del-btn" data-id="{{item.id}}" bindtap="deleteChecklistItem">✕</view>
+        <view class="del-btn" wx:if="{{tripStatus !== 'CLOSED' && tripStatus !== 'finished'}}" data-id="{{item.id}}" bindtap="deleteChecklistItem">✕</view>
       </view>
 
       <view class="empty-state" wx:if="{{filteredChecklist.length === 0}}">
@@ -173,8 +190,8 @@
       </view>
     </view>
 
-    <!-- 底部添加按钮 -->
-    <view class="fab-bar">
+    <!-- 底部添加按钮（仅进行中可添加） -->
+    <view class="fab-bar" wx:if="{{tripStatus !== 'CLOSED' && tripStatus !== 'finished'}}">
       <button class="fab-btn" bindtap="openAddChecklist">➕ 添加自备 / 公用物品</button>
     </view>
   </view>
@@ -197,7 +214,7 @@
         </view>
       </view>
       <view class="aa-actions">
-        <button class="action-btn btn-primary" bindtap="goToAddAA">➕ 记一笔集体消费</button>
+        <button class="action-btn btn-primary" wx:if="{{tripStatus !== 'CLOSED' && tripStatus !== 'finished'}}" bindtap="goToAddAA">➕ 记一笔集体消费</button>
         <button class="action-btn btn-outline" bindtap="copySettlementText">📋 复制群对账单</button>
       </view>
     </view>
@@ -575,6 +592,61 @@
       <view class="modal-btns">
         <button class="m-btn cancel touch-active" bindtap="closeEditMemberModal">取消</button>
         <button class="m-btn confirm touch-active" bindtap="confirmEditMemberName">保存修改</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 专属高颜值旅行日历组件（修改计划日期） -->
+  <trip-calendar 
+    visible="{{showCalendar}}"
+    startDate="{{trip.startDate}}"
+    endDate="{{trip.endDate}}"
+    minDate="{{todayDateStr}}"
+    title="调整小队出行日期"
+    bind:confirm="onCalendarConfirm"
+    bind:close="closeCalendar"
+  />
+
+  <!-- ======================== 模态弹窗 7: 结束行程与实际日期校准归档弹窗 ======================== -->
+  <view class="modal-mask" wx:if="{{showFinishTripModal}}">
+    <view class="modal-box finish-modal-box">
+      <view class="modal-title">🏁 结束行程并归档</view>
+      <view class="modal-sub">系统已根据账单与计划智能推导实际出行日期，核对后即可归档至历史回忆。</view>
+      
+      <!-- 原计划与实际出行对比卡片 -->
+      <view class="finish-dates-card">
+        <view class="fdc-plan-row" wx:if="{{trip.startDate}}">
+          <text class="fdc-plan-lbl">原计划：</text>
+          <text class="fdc-plan-val font-number">{{trip.startDate}} ~ {{trip.endDate}}</text>
+        </view>
+
+        <view class="fdc-actual-title">核对实际出行区间：</view>
+        <view class="fdc-pickers-wrap">
+          <picker mode="date" value="{{actualStartDate}}" bindchange="onActualStartDateChange">
+            <view class="fdc-picker-box">
+              <text class="fpb-tag">实际出发</text>
+              <text class="fpb-date font-number">{{actualStartDate}}</text>
+            </view>
+          </picker>
+          <text class="fdc-sep">→</text>
+          <picker mode="date" value="{{actualEndDate}}" start="{{actualStartDate}}" bindchange="onActualEndDateChange">
+            <view class="fdc-picker-box">
+              <text class="fpb-tag">实际返程</text>
+              <text class="fpb-date font-number">{{actualEndDate}}</text>
+            </view>
+          </picker>
+        </view>
+
+        <view class="fdc-days-tip">
+          <text>实际出行共 </text>
+          <text class="fdc-days-num font-number">{{actualDaysCount}}</text>
+          <text> 天，历史回忆将基于此计算真实日均开销。</text>
+        </view>
+      </view>
+
+      <view class="modal-btns">
+        <button class="m-btn cancel touch-active" bindtap="closeFinishTripModal">暂不结束</button>
+        <button class="m-btn confirm touch-active" bindtap="confirmFinishTripWithActualDates">确认结束并归档</button>
       </view>
     </view>
   </view>

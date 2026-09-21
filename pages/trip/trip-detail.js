@@ -1,19 +1,26 @@
 const { 
+  TRIP_STATUS,
+  MEMBER_STATUS,
   fetchTripByIdFromCloud,
   updateTrip, 
   deleteTrip, 
+  disbandTrip,
+  closeTrip,
+  finishTrip,
+  reopenTrip,
   addMemberToTrip,
   syncTripExpensesToPersonalBills,
   getPendingPersonalSyncInfo,
   getTripStatus,
   getTripSettlementInfo,
-  finishTrip,
-  reopenTrip,
   calculateAASettlement,
   toggleSettledTransfer,
   settleAllTransfers,
   resetAllTransfers,
-  generateInviteCode
+  generateInviteCode,
+  updateTripDates,
+  inferTripActualDates,
+  getLocalDateStr
 } = require('../../utils/tripData.js');
 
 Page({
@@ -21,8 +28,18 @@ Page({
     tripId: '',
     trip: null,
     currentTab: 'checklist', // 'checklist' | 'aa' | 'decision'
-    tripStatus: 'ongoing', // 'ongoing' | 'finished'
+    tripStatus: 'ACTIVE', // 'ACTIVE' | 'CLOSED' | 'DISBANDED'
     settlementInfo: { isAllSettled: true, pendingCount: 0, pendingAmount: '0.00' },
+    
+    // 行程计划日期修改日历
+    showCalendar: false,
+    todayDateStr: '',
+
+    // 结束行程与实际日期确认弹窗
+    showFinishTripModal: false,
+    actualStartDate: '',
+    actualEndDate: '',
+    actualDaysCount: 1,
     
     // 清单数据
     checklistProgress: { total: 0, checked: 0, percent: 0 },
@@ -67,9 +84,12 @@ Page({
 
   onLoad(options) {
     const tripId = (options && (options.tripId || options.id)) || '';
-    const initialData = { tripId };
+    const initialData = { 
+      tripId,
+      todayDateStr: getLocalDateStr()
+    };
     if (options && options.tab) {
-      initialData.currentTab = options.tab;
+      initialData.currentTab = options.tab === 'expense' ? 'aa' : options.tab;
     }
     if (options && options.decisionId) {
       initialData.targetDecisionId = options.decisionId;
@@ -207,6 +227,10 @@ Page({
 
   // 勾选/反选清单项
   async toggleChecklistItem(e) {
+    if (this.data.tripStatus === TRIP_STATUS.CLOSED) {
+      wx.showToast({ title: '行程已结束，清单已归档只读', icon: 'none' });
+      return;
+    }
     const id = e.currentTarget.dataset.id;
     const trip = { ...this.data.trip };
     const list = trip.checklist || [];
@@ -221,6 +245,10 @@ Page({
 
   // 删除清单项
   deleteChecklistItem(e) {
+    if (this.data.tripStatus === TRIP_STATUS.CLOSED) {
+      wx.showToast({ title: '行程已结束，不可修改清单', icon: 'none' });
+      return;
+    }
     const id = e.currentTarget.dataset.id;
     wx.showModal({
       title: '确认删除',
@@ -242,6 +270,10 @@ Page({
 
   // 打开添加清单弹窗
   openAddChecklist() {
+    if (this.data.tripStatus === TRIP_STATUS.CLOSED) {
+      wx.showToast({ title: '行程已结束，不可添加清单项', icon: 'none' });
+      return;
+    }
     this.setData({
       showAddChecklistModal: true,
       newChecklistTitle: '',
@@ -295,6 +327,10 @@ Page({
   /* ==================== 2. AA 结算模块 ==================== */
   // 跳转到记一笔 AA 页面
   goToAddAA() {
+    if (this.data.tripStatus === TRIP_STATUS.CLOSED) {
+      wx.showToast({ title: '行程已结束，不可新增消费', icon: 'none' });
+      return;
+    }
     wx.navigateTo({
       url: `/pages/trip/aa-add?tripId=${this.data.tripId}`
     });
@@ -315,6 +351,10 @@ Page({
 
   // 删除某笔 AA 消费
   deleteExpense(e) {
+    if (this.data.tripStatus === TRIP_STATUS.CLOSED) {
+      wx.showToast({ title: '行程已结束，不可修改历史账单', icon: 'none' });
+      return;
+    }
     const id = e.currentTarget.dataset.id;
     wx.showModal({
       title: '删除消费记录',
@@ -512,24 +552,72 @@ Page({
     });
   },
 
-  // 解散/删除当前旅行小队
-  handleDeleteTrip() {
-    const tripTitle = this.data.trip ? this.data.trip.title : '当前行程';
+  // 解散当前旅行小队（严格区分结束与解散，只能从已结束解散，且强制检查 AA 结清）
+  async handleDeleteTrip() {
+    if (!this.data.isCreator) {
+      wx.showToast({ title: '仅队长可解散行程', icon: 'none' });
+      return;
+    }
+
+    const trip = this.data.trip;
+    const tripTitle = trip ? trip.title : '当前行程';
+    const currentStatus = getTripStatus(trip);
+
+    // 1. 如果当前仍然处于进行中，禁止解散，提示先结束
+    if (currentStatus === TRIP_STATUS.ACTIVE) {
+      wx.showModal({
+        title: '无法直接解散',
+        content: '当前行程正在进行中，请先【结束行程】后再解散。',
+        showCancel: false,
+        confirmText: '我知道了',
+        confirmColor: '#10B981'
+      });
+      return;
+    }
+
+    // 2. 检查 AA 结算是否全部平账
+    const info = getTripSettlementInfo(trip);
+    if (!info.isAllSettled) {
+      wx.showModal({
+        title: '暂无法解散行程',
+        content: `当前还有 ${info.pendingCount} 笔未结清账目（待结金额 ¥${info.pendingAmount}）。\n\n为保障账务安全，请完成 AA 结算后再解散行程。`,
+        confirmText: '去结算',
+        confirmColor: '#10B981',
+        cancelText: '取消',
+        success: (res) => {
+          if (res.confirm) {
+            this.setData({ currentTab: 'aa' });
+          }
+        }
+      });
+      return;
+    }
+
+    // 3. 所有 AA 已平账，二次确认后执行逻辑解散（DISBANDED）
     wx.showModal({
-      title: '解散旅行小队',
-      content: `确定要解散并删除行程“${tripTitle}”吗？\n删除后清单、AA消费流水及决策记录将无法恢复。`,
+      title: '解散旅行小队确认',
+      content: `所有账目已结清。\n确定要解散行程“${tripTitle}”吗？\n\n解散后所有成员都将不可见此行程，且无法恢复。`,
       confirmText: '确认解散',
       confirmColor: '#EF4444',
-      cancelText: '再想想',
+      cancelText: '取消',
       success: async (res) => {
         if (res.confirm) {
           wx.showLoading({ title: '正在解散...' });
-          await deleteTrip(this.data.tripId);
+          const dRes = await disbandTrip(this.data.tripId);
           wx.hideLoading();
-          wx.showToast({ title: '行程已解散删除', icon: 'success' });
-          setTimeout(() => {
-            wx.navigateBack({ delta: 1 });
-          }, 800);
+          if (dRes.success) {
+            wx.showToast({ title: '行程已解散', icon: 'success' });
+            setTimeout(() => {
+              const pages = getCurrentPages();
+              if (pages.length > 1) {
+                wx.navigateBack({ delta: 1 });
+              } else {
+                wx.reLaunch({ url: '/pages/index/index' });
+              }
+            }, 800);
+          } else {
+            wx.showToast({ title: dRes.msg || '解散失败', icon: 'none' });
+          }
         }
       }
     });
@@ -925,7 +1013,90 @@ Page({
     });
   },
 
-  // 结束行程（仅队长可操作，带智能未平账警示）
+  /* ==================== 行程计划日期编辑与实际出行校准 ==================== */
+
+  // 打开修改计划日期的专属旅行日历（进行中随时可改）
+  openEditDatesModal() {
+    if (!this.data.isCreator) return;
+    this.setData({
+      showCalendar: true,
+      todayDateStr: getLocalDateStr()
+    });
+  },
+
+  // 关闭日历
+  closeCalendar() {
+    this.setData({ showCalendar: false });
+  },
+
+  // 日历组件选中确认后直接更新云端数据库
+  async onCalendarConfirm(e) {
+    const { startDate, endDate } = e.detail;
+    this.setData({ showCalendar: false });
+
+    wx.showLoading({ title: '正在更新行程日期...' });
+    const res = await updateTripDates(this.data.tripId, startDate, endDate);
+    wx.hideLoading();
+
+    if (res.success) {
+      wx.showToast({ title: '行程日期已更新', icon: 'success' });
+      await this.loadTripData();
+    } else {
+      wx.showToast({ title: res.msg || '更新失败', icon: 'none' });
+    }
+  },
+
+  // 打开结束行程与实际日期确认弹窗（智能推导）
+  openFinishTripModal() {
+    const trip = this.data.trip || {};
+    const inferred = inferTripActualDates(trip);
+    this.setData({
+      showFinishTripModal: true,
+      actualStartDate: inferred.actualStartDate,
+      actualEndDate: inferred.actualEndDate,
+      actualDaysCount: inferred.daysCount
+    });
+  },
+
+  closeFinishTripModal() {
+    this.setData({ showFinishTripModal: false });
+  },
+
+  onActualStartDateChange(e) {
+    const val = e.detail.value;
+    let end = this.data.actualEndDate;
+    if (end && end < val) end = val;
+    const days = this.calculateDays(val, end);
+    this.setData({
+      actualStartDate: val,
+      actualEndDate: end,
+      actualDaysCount: days
+    });
+  },
+
+  onActualEndDateChange(e) {
+    const val = e.detail.value;
+    const start = this.data.actualStartDate;
+    const days = this.calculateDays(start, val);
+    this.setData({
+      actualEndDate: val,
+      actualDaysCount: days
+    });
+  },
+
+  calculateDays(startStr, endStr) {
+    if (!startStr || !endStr) return 1;
+    try {
+      const s = new Date(startStr.replace(/-/g, '/'));
+      const e = new Date(endStr.replace(/-/g, '/'));
+      const diff = Math.abs(e - s);
+      return Math.max(Math.round(diff / (1000 * 60 * 60 * 24)) + 1, 1);
+    } catch (e) {
+      return 1;
+    }
+  },
+
+  // 结束行程（仅队长可操作，带智能未平账警示与实际出行日期智能校准）
   handleFinishTrip() {
     if (!this.data.isCreator) {
       wx.showToast({ title: '仅队长可结束行程', icon: 'none' });
@@ -936,38 +1107,31 @@ Page({
     if (!info.isAllSettled) {
       wx.showModal({
         title: '尚有未结清转账',
-        content: `当前小队尚有 ${info.pendingCount} 笔转账待结清（待结金额 ¥${info.pendingAmount}）。\n\n结束行程后仍可在“历史行程”中查账结清。确定现在结束行程吗？`,
-        confirmText: '仍要结束',
-        confirmColor: '#EF4444',
+        content: `当前小队尚有 ${info.pendingCount} 笔转账待结清（待结金额 ¥${info.pendingAmount}）。\n\n建议先结清转账。确定现在结束行程并归档吗？`,
+        confirmText: '去核对归档',
+        confirmColor: '#10B981',
         cancelText: '去结清',
         success: (res) => {
           if (res.confirm) {
-            this.executeFinishTrip();
+            this.openFinishTripModal();
           } else {
-            this.setData({ currentTab: 'expense' });
+            // 点击“去结清”：不改变行程状态（保持 ACTIVE 进行中），仅切换至 AA 结算 Tab 供查看与结清转账
+            this.setData({ currentTab: 'aa' });
+            wx.showToast({ title: '已切换至 AA 结算', icon: 'none' });
           }
         }
       });
     } else {
-      wx.showModal({
-        title: '结束行程确认',
-        content: '所有账单已全部平账结清 🎉\n确定结束行程并归档到历史行程吗？',
-        confirmText: '结束行程',
-        confirmColor: '#10B981',
-        cancelText: '取消',
-        success: (res) => {
-          if (res.confirm) {
-            this.executeFinishTrip();
-          }
-        }
-      });
+      this.openFinishTripModal();
     }
   },
 
-  // 执行结束行程写入
-  async executeFinishTrip() {
-    wx.showLoading({ title: '正在结束行程...' });
-    const res = await finishTrip(this.data.tripId);
+  // 确认结束行程（写入实际出行日期并归档）
+  async confirmFinishTripWithActualDates() {
+    const { actualStartDate, actualEndDate, tripId } = this.data;
+    this.closeFinishTripModal();
+    wx.showLoading({ title: '正在结束行程并归档...' });
+    const res = await finishTrip(tripId, { actualStartDate, actualEndDate });
     wx.hideLoading();
     if (res.success) {
       wx.showToast({ title: '行程已结束并归档', icon: 'success' });

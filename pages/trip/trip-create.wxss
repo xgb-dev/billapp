@@ -348,4 +348,120 @@
   color: #FFFFFF;
 }
 
+/* 旅行日历唤起卡片 */
+.date-form-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.date-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12rpx;
+}
+
+.date-calendar-hint {
+  font-size: 24rpx;
+  color: #059669;
+  background: #ECFDF5;
+  padding: 4rpx 16rpx;
+  border-radius: 20rpx;
+  font-weight: 700;
+}
+
+.calendar-trigger-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #F8FAFC;
+  border: 2rpx solid #E2E8F0;
+  border-radius: 20rpx;
+  padding: 20rpx 16rpx;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.calendar-trigger-card:active {
+  background: #F1F5F9;
+  border-color: #10B981;
+}
+
+.ctc-col {
+  flex: 1;
+  width: 33.333%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.ctc-tag {
+  font-size: 22rpx;
+  color: #64748B;
+  font-weight: 600;
+  margin-bottom: 6rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.2;
+}
+
+.ctc-date {
+  font-size: 28rpx;
+  color: #94A3B8;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.ctc-date.active {
+  color: #0F172A;
+}
+
+.ctc-week {
+  font-size: 22rpx;
+  color: #10B981;
+  font-weight: 600;
+  margin-top: 6rpx;
+  line-height: 1.2;
+}
+
+.ctc-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.ctc-arrow {
+  font-size: 26rpx;
+  color: #94A3B8;
+  font-weight: bold;
+  line-height: 1.2;
+  margin-bottom: 6rpx;
+}
+
+.ctc-days {
+  font-size: 20rpx;
+  font-weight: 700;
+  line-height: 1.2;
+  padding: 4rpx 16rpx;
+  border-radius: 12rpx;
+  white-space: nowrap;
+}
+
+.ctc-days.highlight {
+  color: #10B981;
+  background: #ECFDF5;
+  border: 1rpx solid #A7F3D0;
+}
+
+.ctc-days.dim {
+  color: #94A3B8;
+  background: #F1F5F9;
+}
+
 

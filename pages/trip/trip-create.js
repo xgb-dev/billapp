@@ -1,4 +1,15 @@
-const { createTrip, CHECKLIST_TEMPLATES } = require('../../utils/tripData.js');
+const { createTrip, CHECKLIST_TEMPLATES, getLocalDateStr } = require('../../utils/tripData.js');
+
+function getWeekDayStr(dateStr) {
+  if (!dateStr) return '';
+  const weeks = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+  try {
+    const d = new Date(dateStr.replace(/-/g, '/'));
+    return weeks[d.getDay()] || '';
+  } catch (e) {
+    return '';
+  }
+}
 
 Page({
   data: {
@@ -6,6 +17,11 @@ Page({
     destination: '',
     startDate: '',
     endDate: '',
+    minDate: '',
+    daysCount: 0,
+    startWeekStr: '',
+    endWeekStr: '',
+    showCalendar: false,
     members: ['队长'],
     newMemberName: '',
     showEditMemberModal: false,
@@ -20,11 +36,16 @@ Page({
   },
 
   onLoad() {
-    const today = new Date().toISOString().slice(0, 10);
-    const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    const today = getLocalDateStr ? getLocalDateStr() : new Date().toISOString().slice(0, 10);
+    const tomorrowDate = new Date(Date.now() + 86400000);
+    const tomorrowStr = `${tomorrowDate.getFullYear()}-${String(tomorrowDate.getMonth() + 1).padStart(2, '0')}-${String(tomorrowDate.getDate()).padStart(2, '0')}`;
     this.setData({
+      minDate: today,
       startDate: today,
-      endDate: tomorrow
+      endDate: tomorrowStr,
+      daysCount: 2,
+      startWeekStr: getWeekDayStr(today),
+      endWeekStr: getWeekDayStr(tomorrowStr)
     });
   },
 
@@ -36,12 +57,27 @@ Page({
     this.setData({ destination: e.detail.value });
   },
 
-  onStartDateChange(e) {
-    this.setData({ startDate: e.detail.value });
+  // 打开专属旅行日历组件
+  openCalendar() {
+    this.setData({ showCalendar: true });
   },
 
-  onEndDateChange(e) {
-    this.setData({ endDate: e.detail.value });
+  // 关闭旅行日历组件
+  closeCalendar() {
+    this.setData({ showCalendar: false });
+  },
+
+  // 日历组件选中确认回调
+  onCalendarConfirm(e) {
+    const { startDate, endDate, daysCount } = e.detail;
+    this.setData({
+      startDate,
+      endDate,
+      daysCount,
+      startWeekStr: getWeekDayStr(startDate),
+      endWeekStr: getWeekDayStr(endDate),
+      showCalendar: false
+    });
   },
 
   onNewMemberInput(e) {
@@ -132,9 +168,24 @@ Page({
 
   // 提交创建（写入 Supabase 云端数据库后进入详情页）
   async submitCreate() {
-    const { title, destination, startDate, endDate, members, selectedTemplate } = this.data;
+    const { title, destination, startDate, endDate, minDate, members, selectedTemplate } = this.data;
     if (!title.trim()) {
       wx.showToast({ title: '请填写活动名称', icon: 'none' });
+      return;
+    }
+
+    if (!startDate || !endDate) {
+      wx.showToast({ title: '请选择出行日期', icon: 'none' });
+      return;
+    }
+
+    if (minDate && startDate < minDate) {
+      wx.showToast({ title: '出发日期不能早于今天', icon: 'none' });
+      return;
+    }
+
+    if (endDate < startDate) {
+      wx.showToast({ title: '返程日期不能早于出发日期', icon: 'none' });
       return;
     }
 
