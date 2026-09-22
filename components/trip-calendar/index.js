@@ -119,6 +119,14 @@ Component({
     maxMonths: {
       type: Number,
       value: 6
+    },
+    allowPast: {
+      type: Boolean,
+      value: false
+    },
+    pastMonths: {
+      type: Number,
+      value: 12
     }
   },
 
@@ -128,15 +136,17 @@ Component({
     currentStart: '',
     currentEnd: '',
     daysCount: 0,
-    months: []
+    months: [],
+    scrollToMonthId: ''
   },
 
   lifetimes: {
     attached() {
       const today = getLocalDateStr();
+      const allowPast = Boolean(this.properties.allowPast);
       this.setData({
         today,
-        effectiveMinDate: this.properties.minDate || today
+        effectiveMinDate: this.properties.minDate || (allowPast ? '' : today)
       });
       this.initSelection();
       this.buildCalendar();
@@ -146,15 +156,16 @@ Component({
   methods: {
     initSelection() {
       const today = getLocalDateStr();
-      const effectiveMinDate = this.properties.minDate || today;
+      const allowPast = Boolean(this.properties.allowPast);
+      const effectiveMinDate = this.properties.minDate || (allowPast ? '' : today);
       let start = this.properties.startDate;
       let end = this.properties.endDate;
 
-      // 如果传入的开始日期早于今天，且不可选过去，纠正为今天
-      if (start && start < effectiveMinDate) {
+      // 如果不可选过去，且传入的开始日期早于有效最小日期，纠正为有效最小日期
+      if (!allowPast && effectiveMinDate && start && start < effectiveMinDate) {
         start = effectiveMinDate;
       }
-      if (end && end < start) {
+      if (end && start && end < start) {
         end = start;
       }
 
@@ -183,22 +194,43 @@ Component({
       }
     },
 
-    // 构建未来 N 个月的月历网格
+    // 构建月历网格（若开启 allowPast，支持向前展示过去月份）
     buildCalendar() {
       const now = new Date();
       const currentYear = now.getFullYear();
       const currentMonth = now.getMonth(); // 0 - 11
       const monthsCount = this.properties.maxMonths || 6;
+      const allowPast = Boolean(this.properties.allowPast);
       const today = this.data.today || getLocalDateStr();
-      const minDate = this.data.effectiveMinDate || today;
+      const minDate = this.properties.minDate || (allowPast ? '' : today);
+
+      // 计算起始月份偏移
+      let pastMonths = allowPast ? (this.properties.pastMonths || 12) : 0;
+      // 如果已有开始日期更早，扩展 pastMonths 以便包含该月份
+      const currentStart = this.data.currentStart || this.properties.startDate;
+      if (allowPast && currentStart) {
+        try {
+          const sDate = new Date(currentStart.replace(/-/g, '/'));
+          const diffMonths = (currentYear - sDate.getFullYear()) * 12 + (currentMonth - sDate.getMonth());
+          if (diffMonths > pastMonths) {
+            pastMonths = diffMonths + 1;
+          }
+        } catch (e) {}
+      }
+
+      const startOffset = -pastMonths;
+      const totalMonths = pastMonths + monthsCount;
 
       const months = [];
+      let defaultScrollMonthId = `month_${currentYear}_${currentMonth + 1}`;
 
-      for (let i = 0; i < monthsCount; i++) {
-        const targetDate = new Date(currentYear, currentMonth + i, 1);
+      for (let i = 0; i < totalMonths; i++) {
+        const offset = startOffset + i;
+        const targetDate = new Date(currentYear, currentMonth + offset, 1);
         const year = targetDate.getFullYear();
         const month = targetDate.getMonth() + 1; // 1 - 12
         const monthTitle = `${year}年${month}月`;
+        const monthId = `month_${year}_${month}`;
 
         // 当月第一天是周几 (0 为周日，1 为周一 ... 6 为周六)
         const firstDayWeek = new Date(year, month - 1, 1).getDay();
@@ -223,7 +255,8 @@ Component({
 
           const dayOfWeek = new Date(year, month - 1, d).getDay();
           const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
-          const isPast = dateStr < minDate;
+          const isBeforeMin = minDate ? (dateStr < minDate) : false;
+          const isDisabled = (!allowPast && dateStr < today) || isBeforeMin;
           const isToday = dateStr === today;
 
           // 节假日与调休判定
@@ -248,7 +281,8 @@ Component({
             dayNumber: d,
             dateStr,
             isWeekend,
-            isPast,
+            isDisabled,
+            isPast: isDisabled,
             isToday,
             holidayName,
             isRest,
@@ -260,6 +294,7 @@ Component({
         }
 
         months.push({
+          id: monthId,
           year,
           month,
           title: monthTitle,
@@ -267,8 +302,22 @@ Component({
         });
       }
 
+      // 计算滚动定位目标月份：优先聚焦已选开始日期所在月份，否则聚焦当月
+      let scrollToMonthId = defaultScrollMonthId;
+      if (currentStart) {
+        try {
+          const sDate = new Date(currentStart.replace(/-/g, '/'));
+          scrollToMonthId = `month_${sDate.getFullYear()}_${sDate.getMonth() + 1}`;
+        } catch (e) {}
+      }
+
       this.setData({ months }, () => {
         this.updateDaysHighlight();
+        if (scrollToMonthId) {
+          setTimeout(() => {
+            this.setData({ scrollToMonthId });
+          }, 80);
+        }
       });
     },
 
@@ -311,9 +360,10 @@ Component({
 
     // 点击某一天进行区间选点
     handleDayTap(e) {
-      const { date, past } = e.currentTarget.dataset;
-      if (past || !date) {
-        wx.showToast({ title: '无法选择过往日期', icon: 'none' });
+      const { date, disabled, past } = e.currentTarget.dataset;
+      const isDateDisabled = Boolean(disabled !== undefined ? disabled : past);
+      if (isDateDisabled || !date) {
+        wx.showToast({ title: '无法选择该日期', icon: 'none' });
         return;
       }
 

@@ -436,7 +436,9 @@ async loadWithOpenid() {
     if (!decision) return;
 
     decision.voters = decision.voters || {};
-    const myVote = decision.voters[myName] || '';
+    const myVote = decision.voters[myName] 
+      || ((myName === '队长' || myName === '我') ? (decision.voters['队长'] || decision.voters['我']) : '')
+      || '';
 
     this.setData({
       showQuickDecisionModal: true,
@@ -739,32 +741,122 @@ async loadWithOpenid() {
 
     // 关键比较：openid 匹配（创建者或已在成员 openid 列表中）或本地已有角色
     const isCreator = Boolean(currentOid && trip._openid && trip._openid === currentOid);
-    const isJoinedMember = Boolean(currentOid && Array.isArray(trip.memberOpenids) && trip.memberOpenids.includes(currentOid));
+    const isJoinedMember = Boolean(
+      (currentOid && Array.isArray(trip.memberOpenids) && trip.memberOpenids.includes(currentOid)) ||
+      (currentOid && Array.isArray(trip.memberDetails) && trip.memberDetails.some(m => m.openid === currentOid && m.status !== 'left' && m.status !== 'removed'))
+    );
     const hasLocalRole = Boolean(myTripRoles[trip.id]);
+    const isMember = isCreator || isJoinedMember || hasLocalRole;
 
-    if (isCreator || isJoinedMember || hasLocalRole) {
-      // 已经加入了，直接补齐本地映射并进入详情
+    const tripStatus = getTripStatus(trip);
+    const isClosed = tripStatus === TRIP_STATUS.CLOSED || tripStatus === 'finished';
+
+    // 1. 如果行程已结束，且用户不是成员：直接拦截并提示，不弹出加入弹窗
+    if (isClosed && !isMember) {
+      wx.showModal({
+        title: '行程已结束',
+        content: '该行程不存在或已圆满结束，无法加入。',
+        showCancel: false,
+        confirmText: '我知道了',
+        confirmColor: '#10B981'
+      });
+      return;
+    }
+
+    // 2. 如果行程已结束，且用户已经是成员：路由跳转至专属历史详情页 trip-history-detail
+    if (isClosed && isMember) {
       if (!myTripRoles[trip.id]) {
+        let boundMember = null;
+        if (currentOid && Array.isArray(trip.memberDetails)) {
+          boundMember = trip.memberDetails.find(m => m.openid === currentOid);
+        }
+        const memberName = boundMember ? boundMember.name : (isCreator ? ((trip.members && trip.members[0]) || '队长') : ((trip.members && trip.members[1]) || '队员'));
         myTripRoles[trip.id] = {
           role: isCreator ? 'creator' : 'member',
-          name: isCreator ? ((trip.members && trip.members[0]) || '队长') : ((trip.members && trip.members[1]) || '队员')
+          name: memberName
+        };
+        try { wx.setStorageSync('MY_TRIP_ROLES', myTripRoles); } catch (e) {}
+      }
+
+      await fetchTripByIdFromCloud(trip.id);
+      this.loadTrips(currentOid);
+
+      wx.showToast({ title: '已进入历史行程', icon: 'none' });
+      setTimeout(() => {
+        wx.navigateTo({
+          url: `/pages/trip/trip-history-detail?tripId=${trip.id}`
+        });
+      }, 300);
+      return;
+    }
+
+    if (isMember) {
+      // 已经加入了，直接补齐本地映射并进入详情
+      if (!myTripRoles[trip.id]) {
+        let boundMember = null;
+        if (currentOid && Array.isArray(trip.memberDetails)) {
+          boundMember = trip.memberDetails.find(m => m.openid === currentOid);
+        }
+        const memberName = boundMember ? boundMember.name : (isCreator ? ((trip.members && trip.members[0]) || '队长') : ((trip.members && trip.members[1]) || '队员'));
+        myTripRoles[trip.id] = {
+          role: isCreator ? 'creator' : 'member',
+          name: memberName
         };
         try { wx.setStorageSync('MY_TRIP_ROLES', myTripRoles); } catch (e) {}
       }
 
       // 同步最新行程到本地缓存
-      await fetchTripByIdFromCloud(trip.id);
+      const freshTrip = (await fetchTripByIdFromCloud(trip.id)) || trip;
       this.loadTrips(currentOid);
 
       const q = this._pendingInviteQuery || {};
+      this._pendingInviteQuery = null;
       if (q.action === 'quickVote' || q.tab === 'decision' || q.decisionId) {
-        wx.showToast({ title: '欢迎归队！', icon: 'success' });
-        const memberName = myTripRoles[trip.id]?.name || (isCreator ? '队长' : '队员');
-        this.openQuickDecisionModalFromTrip(trip, q.decisionId, memberName);
+        // 先准确获取成员名称
+        let memberName = myTripRoles[trip.id]?.name;
+        if (!memberName) {
+          let boundMember = null;
+          if (currentOid && Array.isArray(freshTrip.memberDetails)) {
+            boundMember = freshTrip.memberDetails.find(m => m.openid === currentOid);
+          }
+          memberName = boundMember ? boundMember.name : (isCreator ? ((freshTrip.members && freshTrip.members[0]) || '队长') : ((freshTrip.members && freshTrip.members[1]) || '队员'));
+        }
+
+        // 寻找目标投票决策
+        let targetDecision = null;
+        if (q.decisionId && Array.isArray(freshTrip.decisions)) {
+          targetDecision = freshTrip.decisions.find(d => d && d.id === q.decisionId);
+        }
+        if (!targetDecision && Array.isArray(freshTrip.decisions)) {
+          targetDecision = freshTrip.decisions.find(d => d && d.type === 'vote') || freshTrip.decisions[0];
+        }
+
+        // 判断该成员是否已经投过票
+        const voters = (targetDecision && targetDecision.voters) || {};
+        const votedOptId = voters[memberName] 
+          || (isCreator ? (voters['队长'] || voters['我']) : '')
+          || (memberName === '队长' ? voters['我'] : '')
+          || (currentOid ? voters[currentOid] : '');
+        const hasVoted = Boolean(votedOptId);
+
+        if (hasVoted) {
+          const votedOpt = targetDecision && targetDecision.options && targetDecision.options.find(o => o.id === votedOptId);
+          const optText = votedOpt ? `（已投：${votedOpt.text && votedOpt.text.length > 8 ? votedOpt.text.slice(0, 8) + '...' : (votedOpt ? votedOpt.text : '')}）` : '';
+          wx.showToast({ 
+            title: `您已参与过该投票${optText}`, 
+            icon: 'none',
+            duration: 2500
+          });
+          return;
+        }
+
+        // 未投过票：展示投票弹窗
+        wx.showToast({ title: '欢迎归队，请投票！', icon: 'success' });
+        this.openQuickDecisionModalFromTrip(freshTrip, q.decisionId, memberName);
         return;
       }
 
-      let detailUrl = `/pages/trip/trip-detail?tripId=${trip.id}`;
+      let detailUrl = `/pages/trip/trip-detail?tripId=${freshTrip.id || trip.id}`;
       if (q.tab) detailUrl += `&tab=${q.tab}`;
       if (q.decisionId) detailUrl += `&decisionId=${q.decisionId}`;
 
@@ -828,10 +920,52 @@ async loadWithOpenid() {
 
       // openid 比对判断是否已经加入
       const isCreator = Boolean(currentOid && trip._openid && trip._openid === currentOid);
-      const isJoinedMember = Boolean(currentOid && Array.isArray(trip.memberOpenids) && trip.memberOpenids.includes(currentOid));
+      const isJoinedMember = Boolean(
+        (currentOid && Array.isArray(trip.memberOpenids) && trip.memberOpenids.includes(currentOid)) ||
+        (currentOid && Array.isArray(trip.memberDetails) && trip.memberDetails.some(m => m.openid === currentOid && m.status !== 'left' && m.status !== 'removed'))
+      );
       const hasLocalRole = Boolean(myTripRoles[trip.id]);
+      const isMember = isCreator || isJoinedMember || hasLocalRole;
 
-      if (isCreator || isJoinedMember || hasLocalRole) {
+      const tripStatus = getTripStatus(trip);
+      const isClosed = tripStatus === TRIP_STATUS.CLOSED || tripStatus === 'finished';
+
+      // 1. 如果行程已结束，且不是小队成员：弹窗拦截并提示“行程不存在或已结束”
+      if (isClosed && !isMember) {
+        this.closeJoinModal();
+        wx.showModal({
+          title: '行程已结束',
+          content: '该行程不存在或已圆满结束，无法加入。',
+          showCancel: false,
+          confirmText: '我知道了',
+          confirmColor: '#10B981'
+        });
+        return;
+      }
+
+      // 2. 如果行程已结束，且是成员：跳转到历史回顾详情页
+      if (isClosed && isMember) {
+        this.closeJoinModal();
+        if (!myTripRoles[trip.id]) {
+          myTripRoles[trip.id] = {
+            role: isCreator ? 'creator' : 'member',
+            name: isCreator ? ((trip.members && trip.members[0]) || '队长') : ((trip.members && trip.members[1]) || '队员')
+          };
+          try { wx.setStorageSync('MY_TRIP_ROLES', myTripRoles); } catch (e) {}
+        }
+        await fetchTripByIdFromCloud(trip.id);
+        this.loadTrips(currentOid);
+
+        wx.showToast({ title: '已进入历史行程', icon: 'none' });
+        setTimeout(() => {
+          wx.navigateTo({
+            url: `/pages/trip/trip-history-detail?tripId=${trip.id}`
+          });
+        }, 400);
+        return;
+      }
+
+      if (isMember) {
         this.closeJoinModal();
         if (!myTripRoles[trip.id]) {
           myTripRoles[trip.id] = {
@@ -921,6 +1055,7 @@ async loadWithOpenid() {
         this.closeJoinModal();
         this.loadTrips();
         const q = this._pendingInviteQuery || {};
+        this._pendingInviteQuery = null;
         if (q.action === 'quickVote' || q.tab === 'decision' || q.decisionId) {
           this.openQuickDecisionModalFromTrip(res.trip, q.decisionId, name);
         } else {
@@ -947,8 +1082,28 @@ async loadWithOpenid() {
         this.closeJoinModal();
         this.loadTrips();
         const q = this._pendingInviteQuery || {};
+        this._pendingInviteQuery = null;
         if (q.action === 'quickVote' || q.tab === 'decision' || q.decisionId) {
-          this.openQuickDecisionModalFromTrip(res.trip, q.decisionId, selectedMemberName);
+          // 查找决策并判断该认领成员是否已投票
+          let targetDecision = null;
+          if (q.decisionId && Array.isArray(res.trip.decisions)) {
+            targetDecision = res.trip.decisions.find(d => d && d.id === q.decisionId);
+          }
+          if (!targetDecision && Array.isArray(res.trip.decisions)) {
+            targetDecision = res.trip.decisions.find(d => d && d.type === 'vote') || res.trip.decisions[0];
+          }
+          const voters = (targetDecision && targetDecision.voters) || {};
+          const votedOptId = voters[selectedMemberName] 
+            || (selectedMemberName === '队长' ? voters['我'] : '');
+          if (votedOptId) {
+            const votedOpt = targetDecision && targetDecision.options && targetDecision.options.find(o => o.id === votedOptId);
+            const optText = votedOpt ? `（已投：${votedOpt.text && votedOpt.text.length > 8 ? votedOpt.text.slice(0, 8) + '...' : (votedOpt ? votedOpt.text : '')}）` : '';
+            setTimeout(() => {
+              wx.showToast({ title: `您已参与过该投票${optText}`, icon: 'none', duration: 2500 });
+            }, 600);
+          } else {
+            this.openQuickDecisionModalFromTrip(res.trip, q.decisionId, selectedMemberName);
+          }
         } else {
           let detailUrl = `/pages/trip/trip-detail?tripId=${res.trip.id}`;
           if (q.tab) detailUrl += `&tab=${q.tab}`;

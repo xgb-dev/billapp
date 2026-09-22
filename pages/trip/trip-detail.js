@@ -18,6 +18,9 @@ const {
   settleAllTransfers,
   resetAllTransfers,
   generateInviteCode,
+  TRIP_SUBSCRIBE_TMPL_ID,
+  updateMemberSubscribeStatus,
+  sendFinishTripSettlementNotifications,
   updateTripDates,
   inferTripActualDates,
   getLocalDateStr
@@ -30,6 +33,14 @@ Page({
     currentTab: 'checklist', // 'checklist' | 'aa' | 'decision'
     tripStatus: 'ACTIVE', // 'ACTIVE' | 'CLOSED' | 'DISBANDED'
     settlementInfo: { isAllSettled: true, pendingCount: 0, pendingAmount: '0.00' },
+    
+    // 成员通知订阅看板与授权
+    membersWithStatus: [],
+    subscribedCount: 0,
+    isMySubscribed: false,
+    hasMyPendingDebt: false,
+    myPendingDebtAmount: '0.00',
+    isRequestingSubscribe: false,
     
     // 行程计划日期修改日历
     showCalendar: false,
@@ -128,6 +139,17 @@ Page({
     const tripId = this.data.tripId;
     if (!tripId) return;
 
+    // 确保当前用户 openid 就绪
+    const app = getApp();
+    if (!this.data.userOpenid && app && app.ensureOpenid) {
+      try {
+        const oid = await app.ensureOpenid();
+        if (oid) {
+          this.setData({ userOpenid: oid });
+        }
+      } catch (e) {}
+    }
+
     if (!this.data.trip) {
       wx.showLoading({ title: '加载小队中...' });
     }
@@ -138,7 +160,21 @@ Page({
       if (cloudTrip) {
         this.renderTripData(cloudTrip);
       } else {
-        wx.showToast({ title: '未找到该小队信息', icon: 'none' });
+        wx.showModal({
+          title: '行程不存在',
+          content: '未找到该小队信息，可能已被解散或口令已失效。',
+          showCancel: false,
+          confirmText: '我知道了',
+          confirmColor: '#10B981',
+          success: () => {
+            const pages = getCurrentPages();
+            if (pages.length > 1) {
+              wx.navigateBack({ delta: 1 });
+            } else {
+              wx.reLaunch({ url: '/pages/index/index' });
+            }
+          }
+        });
       }
     } catch (e) {
       if (!this.data.trip) wx.hideLoading();
@@ -157,11 +193,67 @@ Page({
       updateTrip(trip);
     }
 
-    // 识别身份
+    // 准确识别身份与成员关系
+    const app = getApp();
+    let currentOid = this.data.userOpenid || wx.getStorageSync('openid');
+    if (!currentOid && app && app.globalData) {
+      currentOid = app.globalData.openid || app.globalData.userInfo?.openid || '';
+    }
+    if (!currentOid) {
+      try {
+        currentOid = wx.getStorageSync('userInfo')?.openid || '';
+      } catch (e) {}
+    }
+
     const myTripRoles = wx.getStorageSync('MY_TRIP_ROLES') || {};
     const myRoleInfo = myTripRoles[tripId];
-    const isCreator = myRoleInfo ? (myRoleInfo.role === 'creator') : true;
-    const myMemberName = myRoleInfo ? myRoleInfo.name : ((trip.members && trip.members[0]) || '队长');
+
+    // 1. 判定是否为创建者（队长）
+    const isCreatorByOid = Boolean(currentOid && trip._openid && trip._openid === currentOid);
+    const isCreatorByDetail = Boolean(currentOid && Array.isArray(trip.memberDetails) && trip.memberDetails.some(m => m && m.openid === currentOid && m.role === 'creator'));
+    const isCreatorByRole = Boolean(myRoleInfo && myRoleInfo.role === 'creator');
+    const isDefaultCreator = !myRoleInfo && (!trip.memberOpenids || trip.memberOpenids.length <= 1) && (!trip._openid || trip._openid === currentOid);
+    const isCreator = isCreatorByOid || isCreatorByDetail || isCreatorByRole || isDefaultCreator;
+
+    // 2. 判定是否为小队成员
+    const isMemberByOid = Boolean(currentOid && (
+      (Array.isArray(trip.memberOpenids) && trip.memberOpenids.includes(currentOid)) ||
+      (Array.isArray(trip.memberDetails) && trip.memberDetails.some(m => m && m.openid === currentOid && m.status !== 'LEFT' && m.status !== 'REMOVED' && m.status !== 'left' && m.status !== 'removed'))
+    ));
+    const isMemberByRole = Boolean(myRoleInfo && myRoleInfo.name && Array.isArray(trip.members) && trip.members.includes(myRoleInfo.name));
+    const isMember = isCreator || isMemberByOid || isMemberByRole;
+
+    const myMemberName = myRoleInfo ? myRoleInfo.name : (isCreator ? ((trip.members && trip.members[0]) || '队长') : '队员');
+    const tripStatus = getTripStatus(trip);
+
+    // ================= 处理已结束行程的权限控制与重定向 =================
+    if (tripStatus === TRIP_STATUS.CLOSED || tripStatus === 'finished') {
+      if (!isMember) {
+        // 1. 不是小队成员进入已结束的行程：直接拦截并提示“行程不存在或已结束”
+        wx.showModal({
+          title: '行程已结束',
+          content: '该行程不存在或已圆满结束，无法加入。',
+          showCancel: false,
+          confirmText: '我知道了',
+          confirmColor: '#10B981',
+          success: () => {
+            const pages = getCurrentPages();
+            if (pages.length > 1) {
+              wx.navigateBack({ delta: 1 });
+            } else {
+              wx.reLaunch({ url: '/pages/index/index' });
+            }
+          }
+        });
+        return;
+      } else {
+        // 2. 是小队成员进入已结束的行程：小程序的路由替换为 trip-history-detail 页面
+        wx.redirectTo({
+          url: `/pages/trip/trip-history-detail?tripId=${tripId}`
+        });
+        return;
+      }
+    }
 
     // 1. 计算清单进度
     const checklist = trip.checklist || [];
@@ -173,7 +265,6 @@ Page({
     const settlement = calculateAASettlement(trip.members, trip.expenses, trip.settledTransfers || []);
 
     // 3. 计算行程生命周期状态与平账信息
-    const tripStatus = getTripStatus(trip);
     const settlementInfo = getTripSettlementInfo(trip);
 
     // 4. 筛选当前清单
@@ -191,6 +282,29 @@ Page({
       }
     }
 
+    // 6. 成员订阅消息状态解析与小队保障看板（行程结束 AA 分摊结算提醒）
+    const memberDetails = trip.memberDetails || [];
+    const membersWithStatus = (trip.members || []).map((m, idx) => {
+      const detail = memberDetails.find(d => d && d.name === m);
+      const isMe = (m === myMemberName);
+      const subscribed = Boolean(detail && detail.subscribed);
+      return {
+        name: m,
+        isMe,
+        role: detail ? detail.role : (idx === 0 ? 'creator' : 'member'),
+        subscribed,
+        subscribedAt: detail ? detail.subscribedAt : ''
+      };
+    });
+    const subscribedCount = membersWithStatus.filter(m => m.subscribed).length;
+    const myMemberStatus = membersWithStatus.find(m => m.isMe);
+    const isMySubscribed = Boolean(myMemberStatus && myMemberStatus.subscribed);
+
+    // AA tab 欠款人状态
+    const mySummary = (settlement.memberSummaries || []).find(s => s.name === myMemberName);
+    const myPendingDebtAmount = (mySummary && parseFloat(mySummary.pendingDebt) > 0) ? mySummary.pendingDebt : '0.00';
+    const hasMyPendingDebt = parseFloat(myPendingDebtAmount) > 0;
+
     this.setData({
       trip,
       tripStatus,
@@ -200,8 +314,91 @@ Page({
       settlement,
       isCreator,
       myMemberName,
-      activeDecisionIndex
+      activeDecisionIndex,
+      membersWithStatus,
+      subscribedCount,
+      isMySubscribed,
+      hasMyPendingDebt,
+      myPendingDebtAmount
     });
+  },
+
+  // 唤起微信订阅消息申请授权（行程结束 AA 分摊结算提醒，单次订阅）
+  requestTripSubscription() {
+    if (this.data.isRequestingSubscribe) return;
+    const tmplId = TRIP_SUBSCRIBE_TMPL_ID;
+    const { tripId, myMemberName } = this.data;
+    const currentOid = this.data.userOpenid || wx.getStorageSync('openid');
+
+    this.setData({ isRequestingSubscribe: true });
+    wx.requestSubscribeMessage({
+      tmplIds: [tmplId],
+      success: async (res) => {
+        if (res[tmplId] === 'accept') {
+          wx.showToast({ title: '已开启分摊提醒', icon: 'success' });
+          wx.showLoading({ title: '正在同步状态...' });
+          const updateRes = await updateMemberSubscribeStatus(tripId, myMemberName, currentOid, true);
+          wx.hideLoading();
+          if (updateRes.success && updateRes.trip) {
+            this.renderTripData(updateRes.trip);
+          }
+        } else if (res[tmplId] === 'reject') {
+          wx.showToast({ title: '已取消提醒授权', icon: 'none' });
+        } else {
+          wx.showToast({ title: '未完成授权', icon: 'none' });
+        }
+      },
+      fail: (err) => {
+        console.warn('requestSubscribeMessage fail:', err);
+        if (err.errCode === 20004) {
+          wx.showModal({
+            title: '通知权限受限',
+            content: '您关闭了小程序订阅消息，请在“右上角设置 - 订阅消息”中开启通知权限。',
+            confirmText: '去设置',
+            success: (mRes) => {
+              if (mRes.confirm) {
+                wx.openSetting();
+              }
+            }
+          });
+        } else {
+          wx.showToast({ title: '请在设置中允许订阅消息', icon: 'none' });
+        }
+      },
+      complete: () => {
+        this.setData({ isRequestingSubscribe: false });
+      }
+    });
+  },
+
+  // 查看行程结束分摊提醒说明
+  openSubscribeTips() {
+    wx.showModal({
+      title: '行程结束分摊提醒说明',
+      content: '本通知仅在队长结束行程并发起 AA 结算时，通过微信服务通知提醒您查看最终分摊金额与转账明细。\n\n每个行程只需授权开启 1 次即可。',
+      showCancel: false,
+      confirmText: '我知道了',
+      confirmColor: '#10B981'
+    });
+  },
+
+  // 点击成员小标签
+  onMemberTagTap(e) {
+    const { isme } = e.currentTarget.dataset;
+    if (isme && !this.data.isMySubscribed) {
+      wx.showActionSheet({
+        itemList: ['开启行程分摊提醒', '修改我的名字'],
+        success: (res) => {
+          if (res.tapIndex === 0) {
+            this.requestTripSubscription();
+          } else if (res.tapIndex === 1) {
+            this.openEditMemberNameModal(e);
+          }
+        }
+      });
+    } else {
+      this.openEditMemberNameModal(e);
+    }
   },
 
   // 切换 Tab
@@ -1017,7 +1214,14 @@ Page({
 
   // 打开修改计划日期的专属旅行日历（进行中随时可改）
   openEditDatesModal() {
-    if (!this.data.isCreator) return;
+    if (this.data.tripStatus === 'CLOSED' || this.data.tripStatus === 'finished') {
+      wx.showToast({ title: '行程已结束，不可修改日期', icon: 'none' });
+      return;
+    }
+    if (!this.data.isCreator) {
+      wx.showToast({ title: '仅队长可修改出行日期', icon: 'none' });
+      return;
+    }
     this.setData({
       showCalendar: true,
       todayDateStr: getLocalDateStr()
@@ -1108,7 +1312,7 @@ Page({
       wx.showModal({
         title: '尚有未结清转账',
         content: `当前小队尚有 ${info.pendingCount} 笔转账待结清（待结金额 ¥${info.pendingAmount}）。\n\n建议先结清转账。确定现在结束行程并归档吗？`,
-        confirmText: '去核对归档',
+        confirmText: '核对归档',
         confirmColor: '#10B981',
         cancelText: '去结清',
         success: (res) => {
@@ -1119,6 +1323,9 @@ Page({
             this.setData({ currentTab: 'aa' });
             wx.showToast({ title: '已切换至 AA 结算', icon: 'none' });
           }
+        },
+        fail: () => {
+          this.openFinishTripModal();
         }
       });
     } else {
@@ -1126,26 +1333,45 @@ Page({
     }
   },
 
-  // 确认结束行程（写入实际出行日期并归档）
+  // 确认结束行程（写入实际出行日期并归档，向已开启提醒队员下发微信通知）
   async confirmFinishTripWithActualDates() {
-    const { actualStartDate, actualEndDate, tripId } = this.data;
+    const { actualStartDate, actualEndDate, tripId, trip, settlement } = this.data;
     this.closeFinishTripModal();
-    wx.showLoading({ title: '正在结束行程并归档...' });
+    wx.showLoading({ title: '正在结束并通知...' });
     const res = await finishTrip(tripId, { actualStartDate, actualEndDate });
-    wx.hideLoading();
-    if (res.success) {
-      wx.showToast({ title: '行程已结束并归档', icon: 'success' });
-      setTimeout(() => {
-        const pages = getCurrentPages();
-        if (pages.length > 1) {
-          wx.navigateBack({ delta: 1 });
-        } else {
-          wx.reLaunch({ url: '/pages/index/index' });
-        }
-      }, 800);
-    } else {
+    if (!res.success) {
+      wx.hideLoading();
       wx.showToast({ title: res.msg || '操作失败', icon: 'none' });
+      return;
     }
+
+    // 触发微信订阅消息下发
+    const updatedTrip = res.trip || trip;
+    let notifyMsg = '';
+    try {
+      const notifyRes = await sendFinishTripSettlementNotifications(updatedTrip, {
+        actualStartDate,
+        actualEndDate,
+        settlement
+      });
+      if (notifyRes && notifyRes.sentCount > 0) {
+        notifyMsg = `，已微信通知${notifyRes.sentCount}人`;
+      }
+    } catch (e) {
+      console.warn('sendFinishTripSettlementNotifications fail:', e);
+    }
+
+    wx.hideLoading();
+    wx.showToast({ title: `行程已结束${notifyMsg}`, icon: 'success' });
+
+    setTimeout(() => {
+      const pages = getCurrentPages();
+      if (pages.length > 1) {
+        wx.navigateBack({ delta: 1 });
+      } else {
+        wx.reLaunch({ url: '/pages/index/index' });
+      }
+    }, 1000);
   },
 
   // 重新开启已结束的行程（仅队长可操作）

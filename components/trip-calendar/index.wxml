@@ -47,8 +47,8 @@
     </view>
 
     <!-- 4. 连续滚动月份日历内容区 -->
-    <scroll-view class="calendar-scroll" scroll-y="true">
-      <view class="month-block" wx:for="{{months}}" wx:key="title" wx:for-item="monthItem">
+    <scroll-view class="calendar-scroll" scroll-y="true" scroll-into-view="{{scrollToMonthId}}">
+      <view class="month-block" wx:for="{{months}}" wx:key="id" id="{{monthItem.id}}" wx:for-item="monthItem">
         <!-- 月份标题 -->
         <view class="month-header font-number">
           <text>{{monthItem.title}}</text>
@@ -66,9 +66,10 @@
               <!-- 真实有效日期单元格 -->
               <view 
                 wx:else 
-                class="day-cell {{day.isPast ? 'past-disabled' : ''}} {{day.isWeekend ? 'is-weekend' : ''}} {{day.isSelectedStart ? 'range-start' : ''}} {{day.isSelectedEnd ? 'range-end' : ''}} {{day.isInRange ? 'in-range' : ''}}"
+                class="day-cell {{day.isDisabled ? 'past-disabled' : ''}} {{day.isWeekend ? 'is-weekend' : ''}} {{day.isSelectedStart ? 'range-start' : ''}} {{day.isSelectedEnd ? 'range-end' : ''}} {{day.isInRange ? 'in-range' : ''}}"
                 data-date="{{day.dateStr}}"
-                data-past="{{day.isPast}}"
+                data-disabled="{{day.isDisabled}}"
+                data-past="{{day.isDisabled}}"
                 bindtap="handleDayTap"
               >
                 <!-- 法定节假日/休假标记角标 -->

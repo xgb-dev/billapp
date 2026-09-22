@@ -6,6 +6,8 @@ function getUserOpenid(fallbackOid) {
     return fallbackOid.trim();
   }
   try {
+    const directOid = wx.getStorageSync('openid');
+    if (directOid) return directOid;
     const app = getApp();
     if (app && app.globalData) {
       if (app.globalData.openid) return app.globalData.openid;
@@ -1553,11 +1555,37 @@ async function finishTrip(tripId, actualDates = {}) {
 async function reopenTrip(tripId) {
   const trip = await fetchTripByIdFromCloud(tripId);
   if (!trip) return { success: false, msg: '未找到该行程' };
+
+  // 严格权限校验：只有队长能重新开启历史行程
+  const myOid = getUserOpenid();
+  const myTripRoles = wx.getStorageSync('MY_TRIP_ROLES') || {};
+  const isCreatorByOid = Boolean(myOid && trip._openid && trip._openid === myOid);
+  const isCreatorByDetail = Boolean(myOid && Array.isArray(trip.memberDetails) && trip.memberDetails.some(m => m && m.openid === myOid && m.role === 'creator'));
+  const isCreatorByRole = Boolean(myTripRoles[tripId] && myTripRoles[tripId].role === 'creator' && (!trip._openid || trip._openid === myOid));
+  const isCreator = isCreatorByOid || isCreatorByDetail || isCreatorByRole;
+
+  if (!isCreator) {
+    return { success: false, msg: '仅队长有权重新开启已结束的行程' };
+  }
+
   trip.status = TRIP_STATUS.ACTIVE;
   delete trip.closedAt;
   delete trip.finishedAt;
   delete trip.disbandedAt;
   trip.trash = 0;
+
+  // 重新开启后，清空所有成员的已订阅状态，方便成员重新订阅下一次分摊提醒
+  if (Array.isArray(trip.memberDetails)) {
+    trip.memberDetails.forEach(m => {
+      if (m) {
+        m.subscribed = false;
+        delete m.subscribedAt;
+        delete m.lastNotifiedAt;
+        delete m.subscribeCount;
+      }
+    });
+  }
+
   await updateTrip(trip);
   return { success: true, trip };
 }
@@ -1634,9 +1662,169 @@ async function hideTripForMember(tripId, memberName) {
   return { success: true };
 }
 
+// 订阅消息模板配置（行程结束 AA 分摊结算提醒，单次订阅消息）
+const TRIP_SUBSCRIBE_TMPL_ID = 'VSbgki-jgmco25bf9yN0Z90KX1TOja8Puonukgwsutc';
+
+// 更新成员订阅消息授权状态（持久化保存至云端 memberDetails，行程结束时下发 1 次）
+async function updateMemberSubscribeStatus(tripId, memberName, openid, isSubscribed) {
+  const trip = await fetchTripByIdFromCloud(tripId);
+  if (!trip) return { success: false, msg: '未找到该行程' };
+
+  trip.memberDetails = trip.memberDetails || [];
+  const myOid = openid || getUserOpenid();
+  let detail = trip.memberDetails.find(m => (myOid && m.openid === myOid) || m.name === memberName);
+
+  const nowStr = new Date().toISOString();
+  if (detail) {
+    detail.subscribed = Boolean(isSubscribed);
+    detail.subscribedAt = isSubscribed ? nowStr : null;
+    delete detail.subscribeCount;
+    if (myOid && !detail.openid) detail.openid = myOid;
+  } else {
+    trip.memberDetails.push({
+      name: memberName || '队员',
+      openid: myOid || '',
+      role: 'member',
+      status: MEMBER_STATUS.ACTIVE,
+      subscribed: Boolean(isSubscribed),
+      subscribedAt: isSubscribed ? nowStr : null,
+      joined_at: nowStr
+    });
+  }
+
+  await updateTrip(trip);
+  return { success: true, trip };
+}
+
+// 订阅消息下发 API 接口配置
+const TRIP_SUBSCRIBE_API = 'https://wxopenid.val.run/subscribe/send';
+
+// 调用微信订阅消息下发接口
+function sendWechatSubscribeMessage({ touser, templateId, page, data, miniprogramState }) {
+  return new Promise((resolve) => {
+    if (!touser) {
+      return resolve({ success: false, msg: '缺少 openid' });
+    }
+
+    // 动态识别当前小程序运行环境
+    let envState = miniprogramState || 'formal';
+    try {
+      if (typeof __wxConfig !== 'undefined' && __wxConfig.envVersion) {
+        const env = __wxConfig.envVersion;
+        if (env === 'develop') envState = 'developer';
+        else if (env === 'trial') envState = 'trial';
+        else if (env === 'release') envState = 'formal';
+      }
+    } catch (e) {}
+
+    const payload = {
+      touser,
+      template_id: templateId || TRIP_SUBSCRIBE_TMPL_ID,
+      page: page || 'pages/index/index',
+      data,
+      miniprogram_state: envState,
+      lang: 'zh_CN'
+    };
+
+    wx.request({
+      url: TRIP_SUBSCRIBE_API,
+      method: 'POST',
+      header: { 'Content-Type': 'application/json' },
+      data: payload,
+      success: (res) => {
+        console.log('[SubscribeMessage] send response:', res.data);
+        if (res.statusCode === 200 && res.data && res.data.success) {
+          resolve({ success: true, data: res.data });
+        } else {
+          resolve({
+            success: false,
+            msg: (res.data && res.data.message) || `下发失败(HTTP ${res.statusCode})`
+          });
+        }
+      },
+      fail: (err) => {
+        console.warn('[SubscribeMessage] network error:', err);
+        resolve({ success: false, error: err, msg: '网络请求失败' });
+      }
+    });
+  });
+}
+
+// 行程结束时，向所有已开启分摊提醒的队员下发微信 AA 结算通知
+async function sendFinishTripSettlementNotifications(trip, options = {}) {
+  if (!trip) return { success: false, sentCount: 0, failedCount: 0, msg: '缺少行程信息' };
+
+  const memberDetails = trip.memberDetails || [];
+  // 筛选出已开启订阅且具有有效 openid 的队员
+  const targets = memberDetails.filter(m => m && m.subscribed && m.openid && m.openid.trim());
+  if (targets.length === 0) {
+    return { success: true, sentCount: 0, failedCount: 0, msg: '没有已开启通知且绑定openid的队员' };
+  }
+
+  const { actualStartDate, actualEndDate, settlement } = options;
+  const statDate = actualEndDate || actualStartDate || getLocalDateStr();
+  const tripTitle = (trip.title || '行程').slice(0, 8);
+
+  let sentCount = 0;
+  let failedCount = 0;
+  const sentOpenids = [];
+
+  for (const member of targets) {
+    // 获取该成员的应分摊金额
+    let owedAmt = '0.00';
+    if (settlement && Array.isArray(settlement.memberSummaries)) {
+      const summary = settlement.memberSummaries.find(s => s.name === member.name);
+      if (summary && summary.owed) {
+        owedAmt = parseFloat(summary.owed).toFixed(2);
+      }
+    }
+
+    const payloadData = {
+      thing18: { value: 'AA分摊费用' },
+      date1: { value: statDate },
+      amount50: { value: `${owedAmt}元` },
+      thing9: { value: `${tripTitle}已结束，请核对` }
+    };
+
+    const sendRes = await sendWechatSubscribeMessage({
+      touser: member.openid,
+      templateId: TRIP_SUBSCRIBE_TMPL_ID,
+      page: `pages/trip/trip-history-detail?tripId=${trip.id}`,
+      data: payloadData
+    });
+
+    if (sendRes.success) {
+      sentCount++;
+      sentOpenids.push(member.openid);
+    } else {
+      failedCount++;
+      console.warn(`[SubscribeMessage] Failed sending to ${member.name}:`, sendRes.msg);
+    }
+  }
+
+  // 成功下发后消费单次订阅状态
+  if (sentOpenids.length > 0) {
+    memberDetails.forEach(m => {
+      if (sentOpenids.includes(m.openid)) {
+        m.subscribed = false;
+        m.lastNotifiedAt = new Date().toISOString();
+      }
+    });
+    trip.memberDetails = memberDetails;
+    await updateTrip(trip);
+  }
+
+  return { success: true, sentCount, failedCount };
+}
+
 module.exports = {
   TRIP_STATUS,
   MEMBER_STATUS,
+  TRIP_SUBSCRIBE_TMPL_ID,
+  TRIP_SUBSCRIBE_API,
+  updateMemberSubscribeStatus,
+  sendWechatSubscribeMessage,
+  sendFinishTripSettlementNotifications,
   fetchTripByIdFromCloud,
   fetchUserTripsFromCloud,
   addMemberToTrip,

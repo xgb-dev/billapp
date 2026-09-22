@@ -42,7 +42,7 @@
         <text class="hero-dest-text">{{trip.destination || '目的地待定'}}</text>
       </view>
       
-      <view class="hero-date-badge {{isCreator && (tripStatus === 'ACTIVE' || tripStatus === 'ongoing') ? 'editable touch-active' : ''}}" bindtap="{{isCreator && (tripStatus === 'ACTIVE' || tripStatus === 'ongoing') ? 'openEditDatesModal' : ''}}">
+      <view class="hero-date-badge {{isCreator && (tripStatus === 'ACTIVE' || tripStatus === 'ongoing') ? 'editable touch-active' : ''}}" bindtap="openEditDatesModal">
         <text class="hero-date-icon">📅</text>
         <text class="hero-date-text font-number">{{trip.startDate ? (trip.startDate + ' ~ ' + trip.endDate) : (isCreator ? '设置行程日期' : '未设日期')}}</text>
         <text class="hero-date-edit-icon" wx:if="{{trip.startDate && isCreator && (tripStatus === 'ACTIVE' || tripStatus === 'ongoing')}}">✎</text>
@@ -64,18 +64,28 @@
 
     <!-- 成员小头像/标签列表 -->
     <view class="members-bar">
-      <view class="members-label">小队成员 ({{trip.members.length}}人):</view>
+      <view class="members-header-line">
+        <view class="members-label">小队成员 ({{membersWithStatus.length}}人):</view>
+        <!-- 订阅保障统计提示 -->
+        <view class="members-sub-stat touch-active" bindtap="openSubscribeTips">
+          <view class="sub-stat-bell-icon"></view>
+          <text class="sub-stat-text">{{subscribedCount}}/{{membersWithStatus.length}}人开启提醒</text>
+          <text class="sub-stat-help">?</text>
+        </view>
+      </view>
       <view class="members-tags">
         <view 
-          class="member-tag {{item === myMemberName ? 'me-tag' : ''}} touch-active" 
-          wx:for="{{trip.members}}" 
-          wx:key="*this"
-          bindtap="openEditMemberNameModal"
-          data-name="{{item}}"
+          class="member-tag {{item.isMe ? 'me-tag' : ''}} touch-active" 
+          wx:for="{{membersWithStatus}}" 
+          wx:key="name"
+          bindtap="onMemberTagTap"
+          data-name="{{item.name}}"
           data-index="{{index}}"
+          data-isme="{{item.isMe}}"
         >
-          <text>{{item}}</text>
-          <text class="me-tag-badge" wx:if="{{item === myMemberName}}">我</text>
+          <text>{{item.name}}</text>
+          <text class="me-tag-badge" wx:if="{{item.isMe}}">我</text>
+          <view class="tag-sub-icon sub-on" wx:if="{{item.subscribed}}"></view>
         </view>
         <!-- 已退出小队的成员标签 -->
         <view class="member-tag left-member-tag" wx:for="{{trip.leftMembers}}" wx:key="name">
@@ -88,6 +98,28 @@
         </view>
       </view>
     </view>
+  </view>
+
+  <!-- 全员微信订阅通知引导卡片（未开启时展示大卡，点击一键授权） -->
+  <view class="subscribe-prompt-card touch-active" wx:if="{{!isMySubscribed}}" bindtap="requestTripSubscription">
+    <view class="spc-left">
+      <view class="spc-bell-wrap">
+        <view class="spc-bell-icon"></view>
+      </view>
+      <view class="spc-texts">
+        <view class="spc-title">开启行程结束 AA 分摊提醒</view>
+        <view class="spc-desc">队长结束行程发起清算时，微信通知你查看分摊金额与账单</view>
+      </view>
+    </view>
+    <view class="spc-btn">开启提醒</view>
+  </view>
+  <!-- 已开启时折叠为轻量静态胶囊 -->
+  <view class="subscribe-active-pill" wx:else>
+    <view class="sap-left">
+      <text class="sap-icon">✓</text>
+      <text class="sap-text">已开启行程结束 AA 分摊提醒</text>
+    </view>
+    <text class="sap-badge">已就绪</text>
   </view>
 
   <!-- 历史已结束行程提示条 -->
@@ -198,6 +230,18 @@
 
   <!-- ======================== TAB 2: AA 结算 ======================== -->
   <view class="tab-content" wx:if="{{currentTab === 'aa'}}">
+    <!-- 针对有待平账分摊且未开启通知成员的场景化强引导 -->
+    <view class="debt-subscribe-banner touch-active" wx:if="{{hasMyPendingDebt && !isMySubscribed}}" bindtap="requestTripSubscription">
+      <view class="dsb-left">
+        <text class="dsb-icon">💡</text>
+        <view class="dsb-content">
+          <view class="dsb-title">你有一笔待转账平账分摊 (¥{{myPendingDebtAmount}})</view>
+          <view class="dsb-sub">微信通知为单次接收，授权后可实时接收对账动态</view>
+        </view>
+      </view>
+      <view class="dsb-btn">授权通知</view>
+    </view>
+
     <!-- 支出概览看板 -->
     <view class="aa-summary-card">
       <view class="summary-top">
@@ -596,12 +640,12 @@
     </view>
   </view>
 
-  <!-- 专属高颜值旅行日历组件（修改计划日期） -->
+  <!-- 专属高颜值旅行日历组件（修改计划日期，允许选择过去日期） -->
   <trip-calendar 
     visible="{{showCalendar}}"
     startDate="{{trip.startDate}}"
     endDate="{{trip.endDate}}"
-    minDate="{{todayDateStr}}"
+    allowPast="{{true}}"
     title="调整小队出行日期"
     bind:confirm="onCalendarConfirm"
     bind:close="closeCalendar"
@@ -641,6 +685,12 @@
           <text>实际出行共 </text>
           <text class="fdc-days-num font-number">{{actualDaysCount}}</text>
           <text> 天，历史回忆将基于此计算真实日均开销。</text>
+        </view>
+
+        <!-- 微信订阅消息下发提醒说明 -->
+        <view class="fdc-notify-banner" wx:if="{{subscribedCount > 0}}">
+          <view class="fnb-bell-icon"></view>
+          <text class="fnb-text">小队已有 {{subscribedCount}} 人开启提醒，归档后将通过微信发送结算账单通知</text>
         </view>
       </view>
 

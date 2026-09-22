@@ -115,8 +115,6 @@ Page({
       // 识别我的身份
       const myTripRoles = wx.getStorageSync('MY_TRIP_ROLES') || {};
       const myRoleInfo = myTripRoles[tripId];
-      let myMemberName = '队长';
-      let isCreator = false;
 
       // 获取当前用户 openid
       let myOpenid = '';
@@ -125,19 +123,55 @@ Page({
           myOpenid = await app.ensureOpenid();
         }
       } catch (e) {}
-
-      if (trip._openid && myOpenid && trip._openid === myOpenid) {
-        isCreator = true;
-      } else if (myRoleInfo && myRoleInfo.role === 'creator') {
-        isCreator = true;
+      if (!myOpenid) {
+        myOpenid = wx.getStorageSync('openid') || wx.getStorageSync('userInfo')?.openid || '';
       }
 
+      // 1. 判定是否为创建者（队长）
+      const isCreatorByOid = Boolean(myOpenid && trip._openid && trip._openid === myOpenid);
+      const isCreatorByDetail = Boolean(myOpenid && Array.isArray(trip.memberDetails) && trip.memberDetails.some(m => m && m.openid === myOpenid && m.role === 'creator'));
+      const isCreatorByRole = Boolean(myRoleInfo && myRoleInfo.role === 'creator' && (!trip._openid || trip._openid === myOpenid));
+      const isCreator = isCreatorByOid || isCreatorByDetail || isCreatorByRole;
+
+      // 2. 判定是否为该小队成员
+      const isMemberByOid = Boolean(myOpenid && (
+        (Array.isArray(trip.memberOpenids) && trip.memberOpenids.includes(myOpenid)) ||
+        (Array.isArray(trip.memberDetails) && trip.memberDetails.some(m => m && m.openid === myOpenid && m.status !== 'left' && m.status !== 'removed' && m.status !== 'LEFT' && m.status !== 'REMOVED'))
+      ));
+      const isMemberByRole = Boolean(myRoleInfo && myRoleInfo.name && Array.isArray(trip.members) && trip.members.includes(myRoleInfo.name));
+      const isMember = isCreator || isMemberByOid || isMemberByRole;
+
+      // 如果不是该行程的成员，直接提示并拦截返回
+      if (!isMember) {
+        this.setData({ loading: false });
+        wx.showModal({
+          title: '行程已结束',
+          content: '该行程不存在或已圆满结束，无法加入。',
+          showCancel: false,
+          confirmText: '我知道了',
+          confirmColor: '#10B981',
+          success: () => {
+            const pages = getCurrentPages();
+            if (pages.length > 1) {
+              wx.navigateBack({ delta: 1 });
+            } else {
+              wx.reLaunch({ url: '/pages/index/index' });
+            }
+          }
+        });
+        return;
+      }
+
+      let myMemberName = '队员';
       if (myRoleInfo && myRoleInfo.name) {
         myMemberName = myRoleInfo.name;
       } else if (isCreator) {
         myMemberName = (trip.members && trip.members[0]) || '队长';
+      } else if (myOpenid && Array.isArray(trip.memberDetails)) {
+        const bound = trip.memberDetails.find(m => m && m.openid === myOpenid);
+        if (bound && bound.name) myMemberName = bound.name;
       } else {
-        myMemberName = (trip.members && trip.members[0]) || '我';
+        myMemberName = (trip.members && trip.members[1]) || (trip.members && trip.members[0]) || '我';
       }
 
       const members = Array.isArray(trip.members) && trip.members.length > 0 ? trip.members : ['队长'];
