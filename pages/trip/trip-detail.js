@@ -1236,10 +1236,24 @@ Page({
   // 日历组件选中确认后直接更新云端数据库
   async onCalendarConfirm(e) {
     const { startDate, endDate } = e.detail;
-    this.setData({ showCalendar: false });
+    if (!startDate) {
+      this.setData({ showCalendar: false });
+      return;
+    }
 
+    // 1. 立即乐观更新当前页面上的 trip 数据与视图，确保用户无等待立刻看到新日期
+    const currentTrip = this.data.trip ? { ...this.data.trip } : {};
+    currentTrip.startDate = startDate;
+    currentTrip.endDate = endDate || startDate;
+
+    this.setData({
+      trip: currentTrip,
+      showCalendar: false
+    });
+
+    // 2. 异步持久化到云端数据库并重新对齐数据
     wx.showLoading({ title: '正在更新行程日期...' });
-    const res = await updateTripDates(this.data.tripId, startDate, endDate);
+    const res = await updateTripDates(this.data.tripId, startDate, currentTrip.endDate, currentTrip);
     wx.hideLoading();
 
     if (res.success) {

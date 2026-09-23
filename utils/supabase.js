@@ -2,6 +2,16 @@
 const supabaseUrl = 'https://dxzmebuimxtfznmcdwht.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR4em1lYnVpbXh0ZnpubWNkd2h0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTI3MzMxMTMsImV4cCI6MjAyODMwOTExM30.HrTOiN3nsf6EJBcq8nw5ZpO5H23g5OZ8oSN1f-fPq0Q';
 
+function wxRequestPromise(options) {
+  return new Promise((resolve, reject) => {
+    wx.request({
+      ...options,
+      success: (res) => resolve(res),
+      fail: (err) => reject(err)
+    });
+  });
+}
+
 // 初始化 Supabase 客户端
 function createClient() {
   return {
@@ -36,21 +46,13 @@ function createClient() {
         url += `&limit=${to - from + 1}&offset=${from}`;
         
         // 发送请求
-        return new Promise((resolve,reject) => {
-          wx.request({
-            url,
-            header: {
-              'apikey': this.key,
-              'Authorization': `${this.key}`,
-              'Content-Type': 'application/json'
-            },
-            success: (res) => {
-              resolve(res)
-            },
-            fail: (res) => {
-              reject(res)
-            }
-          });
+        return await wxRequestPromise({
+          url,
+          header: {
+            'apikey': this.key,
+            'Authorization': `Bearer ${this.key}`,
+            'Content-Type': 'application/json'
+          }
         });
       } catch (error) {
         return Promise.reject({
@@ -63,7 +65,7 @@ function createClient() {
     // 插入数据
     async insert(table, data) {
       try {
-        const response = await wx.request({
+        const response = await wxRequestPromise({
           url: `${this.url}/rest/v1/${table}`,
           method: 'POST',
           header: {
@@ -102,7 +104,7 @@ function createClient() {
         });
         
         // 发送 PATCH 请求更新数据
-        const response = await wx.request({
+        const response = await wxRequestPromise({
           url: url,
           method: 'PATCH',
           header: {
@@ -145,7 +147,7 @@ function createClient() {
           if (index > 0) url += '&';
           url += `${column}=${operator}.${encodeURIComponent(value)}`;
         });
-        const response = await wx.request({
+        const response = await wxRequestPromise({
           url: url,
           method: 'DELETE',
           header: {
@@ -176,7 +178,7 @@ function createClient() {
           url += `&${column}=${operator}.${encodeURIComponent(value)}`;
         });
         
-        const response = await wx.request({
+        const response = await wxRequestPromise({
           url,
           method: 'GET',
           header: {

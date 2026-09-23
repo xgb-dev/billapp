@@ -35,6 +35,27 @@
       </view>
     </view>
 
+    <!-- 2.5 目的地天气预报条（当有目的地或正在加载天气时显示） -->
+    <view class="weather-banner" wx:if="{{destination || weatherLoaded || weatherLoading}}">
+      <view class="wb-content">
+        <view class="wb-city-tag">
+          <text class="wb-icon">📍</text>
+          <text class="wb-city">{{weatherCity || destination}}</text>
+        </view>
+        <view class="wb-divider"></view>
+        <view class="wb-info" wx:if="{{weatherLoading}}">
+          <text class="wb-loading-dot">⏳</text>
+          <text class="wb-text">正在获取 Open-Meteo 实时气象...</text>
+        </view>
+        <view class="wb-info" wx:elif="{{weatherLoaded}}">
+          <text class="wb-tip-text">{{weatherTip || ('近期：' + weatherSummary)}}</text>
+        </view>
+        <view class="wb-info wb-dim" wx:else>
+          <text class="wb-text">{{weatherSummary || '暂无当地气象数据'}}</text>
+        </view>
+      </view>
+    </view>
+
     <!-- 3. 固定吸顶星期栏（周日、周六使用特色温暖标识） -->
     <view class="week-bar">
       <view class="week-cell weekend"><text>日</text></view>
@@ -86,8 +107,14 @@
                 </view>
 
                 <!-- 选点角色标签（出发 / 返程 / 今天） -->
-                <view class="day-tip" wx:if="{{day.tipText}}">
+                <view class="day-tip" wx:if="{{day.tipText && (day.isSelectedStart || day.isSelectedEnd || !day.weather)}}">
                   <text>{{day.tipText}}</text>
+                </view>
+
+                <!-- 微缩天气简易标签（在有短期16天预报的格子上展示） -->
+                <view class="day-weather" wx:elif="{{day.weather && !day.isSelectedStart && !day.isSelectedEnd}}">
+                  <text class="dw-icon">{{day.weather.icon}}</text>
+                  <text class="dw-temp font-number">{{day.weather.maxTemp}}°</text>
                 </view>
               </view>
             </block>

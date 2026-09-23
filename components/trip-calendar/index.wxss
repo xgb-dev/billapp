@@ -187,6 +187,91 @@
   background: #F1F5F9;
 }
 
+/* 2.5 目的地天气预报条 */
+.weather-banner {
+  margin: 0 28rpx 14rpx;
+  background: linear-gradient(135deg, #F0FDF4 0%, #F8FAFC 100%);
+  border: 1.5rpx solid #DCFCE7;
+  border-radius: 16rpx;
+  padding: 12rpx 20rpx;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  box-shadow: 0 2rpx 8rpx rgba(16, 185, 129, 0.04);
+}
+
+.wb-content {
+  display: flex;
+  align-items: center;
+}
+
+.wb-city-tag {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.wb-icon {
+  font-size: 24rpx;
+  margin-right: 6rpx;
+}
+
+.wb-city {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #065F46;
+  max-width: 180rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wb-divider {
+  width: 2rpx;
+  height: 22rpx;
+  background: #CBD5E1;
+  margin: 0 16rpx;
+  flex-shrink: 0;
+}
+
+.wb-info {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+.wb-info.wb-dim {
+  opacity: 0.7;
+}
+
+.wb-loading-dot {
+  font-size: 20rpx;
+  margin-right: 8rpx;
+  animation: wb-spin 2s linear infinite;
+}
+
+@keyframes wb-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.wb-text {
+  font-size: 22rpx;
+  color: #64748B;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wb-tip-text {
+  font-size: 22rpx;
+  font-weight: 600;
+  color: #047857;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* 3. 吸顶星期栏（周日、周六使用特色温暖标识） */
 .week-bar {
   display: flex;
@@ -335,6 +420,37 @@
   line-height: 1;
   margin-top: 4rpx;
   z-index: 2;
+}
+
+/* 日历网格单元格微缩天气标签 */
+.day-weather {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 4rpx;
+  line-height: 1;
+  z-index: 2;
+}
+
+.day-weather .dw-icon {
+  font-size: 18rpx;
+  line-height: 1;
+  margin-right: 2rpx;
+}
+
+.day-weather .dw-temp {
+  font-size: 18rpx;
+  font-weight: 600;
+  color: #64748B;
+  line-height: 1;
+}
+
+.day-cell.in-range .day-weather .dw-temp {
+  color: #047857;
+}
+
+.day-cell.past-disabled .day-weather {
+  opacity: 0.4;
 }
 
 /* 选中出发状态 */

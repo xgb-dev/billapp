@@ -21,7 +21,13 @@
 
     <!-- 目的地 -->
     <view class="form-item">
-      <text class="item-label">目的地</text>
+      <view class="form-item-header">
+        <text class="item-label">目的地</text>
+        <view class="dest-weather-tag">
+          <text class="dwt-icon">🌤️</text>
+          <text class="dwt-text">支持关联出行期间天气</text>
+        </view>
+      </view>
       <input 
         class="form-input" 
         placeholder="例如：云南大理、莫干山" 
@@ -29,6 +35,10 @@
         value="{{destination}}"
         bindinput="onDestInput"
       />
+      <view class="dest-weather-hint">
+        <text class="dwh-icon">💡</text>
+        <text class="dwh-text">填写目的地后，选择出行日历将自动为您展示当地及行程期间的天气预报</text>
+      </view>
     </view>
 
     <view class="divider"></view>
@@ -150,6 +160,7 @@
   <!-- 专属高颜值旅行日历组件 -->
   <trip-calendar 
     visible="{{showCalendar}}"
+    destination="{{destination}}"
     startDate="{{startDate}}"
     endDate="{{endDate}}"
     minDate="{{minDate}}"

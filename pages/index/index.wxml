@@ -48,6 +48,29 @@
       </view>
     </view>
   </view>
+  
+  <!-- 快捷记账入口 -->
+  <view class="action-grid">
+    <view class="action-card expense-card touch-active" bindtap="goToExpense">
+      <view class="action-info">
+        <text class="action-title">记支出</text>
+        <text class="action-desc">记录日常开销</text>
+      </view>
+      <view class="action-icon-box expense-icon-box">
+        <image src="/images/expenses.png" class="action-img"></image>
+      </view>
+    </view>
+
+    <view class="action-card income-card touch-active" bindtap="goToIncome">
+      <view class="action-info">
+        <text class="action-title">记收入</text>
+        <text class="action-desc">记录薪资进账</text>
+      </view>
+      <view class="action-icon-box income-icon-box">
+        <image src="/images/income.png" class="action-img"></image>
+      </view>
+    </view>
+  </view>
 
   <!-- 月度预算卡片 -->
   <view class="budget-card touch-active" bindtap="setBudget">
@@ -55,9 +78,7 @@
       <view class="budget-title-row">
         <text class="budget-icon">🎯</text>
         <text class="budget-title">本月预算</text>
-        <text class="budget-status-tag {{budgetStatus}}" wx:if="{{hasBudget}}">
-          {{isOverBudget ? '已超支' : (budgetPercent >= 80 ? '预警' : '充裕')}}
-        </text>
+        <text class="budget-status-tag {{budgetStatus}}" wx:if="{{hasBudget}}">{{isOverBudget ? '已超支' : (budgetPercent >= 80 ? '预警' : '充裕')}}</text>
       </view>
       <view class="budget-action">
         <text class="budget-btn-text">{{hasBudget ? ('¥' + monthlyBudget) : '未设置'}}</text>
@@ -74,9 +95,7 @@
       </view>
       <view class="budget-footer">
         <text class="budget-spent">已用 {{budgetPercent}}%（¥{{isHideAmount ? '***' : monthExpense}}）</text>
-        <text class="budget-rem {{budgetStatus}}">
-          {{isOverBudget ? '超支 ¥' + (isHideAmount ? '***' : budgetRemaining) : '剩余 ¥' + (isHideAmount ? '***' : budgetRemaining)}}
-        </text>
+        <text class="budget-rem {{budgetStatus}}">{{isOverBudget ? '超支 ¥' + (isHideAmount ? '***' : budgetRemaining) : '剩余 ¥' + (isHideAmount ? '***' : budgetRemaining)}}</text>
       </view>
     </block>
 
@@ -291,28 +310,6 @@
     </view>
   </view>
 
-  <!-- 快捷记账入口 -->
-  <view class="action-grid">
-    <view class="action-card expense-card touch-active" bindtap="goToExpense">
-      <view class="action-info">
-        <text class="action-title">记支出</text>
-        <text class="action-desc">记录日常开销</text>
-      </view>
-      <view class="action-icon-box expense-icon-box">
-        <image src="/images/expenses.png" class="action-img"></image>
-      </view>
-    </view>
-
-    <view class="action-card income-card touch-active" bindtap="goToIncome">
-      <view class="action-info">
-        <text class="action-title">记收入</text>
-        <text class="action-desc">记录薪资进账</text>
-      </view>
-      <view class="action-icon-box income-icon-box">
-        <image src="/images/income.png" class="action-img"></image>
-      </view>
-    </view>
-  </view>
 
   <!-- 统计分析入口横幅 -->
   <view class="chart-banner touch-active" bindtap="goToChart">

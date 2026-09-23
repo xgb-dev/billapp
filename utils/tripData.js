@@ -594,15 +594,18 @@ async function createTrip(tripData) {
   return newTrip;
 }
 
-// 更新活动（直接 await 更新至 Supabase 云端数据库）
 async function updateTrip(updatedTrip) {
   if (!updatedTrip || !updatedTrip.id) return false;
 
   if (supabase) {
     try {
-      await supabase.update('trips', mapTripToRow(updatedTrip), [
+      const res = await supabase.update('trips', mapTripToRow(updatedTrip), [
         { column: 'id', operator: 'eq', value: updatedTrip.id }
       ]);
+      if (res && res.error) {
+        console.warn('Supabase update trips error:', res.error);
+        return false;
+      }
       return true;
     } catch (err) {
       console.warn('Supabase update trips error:', err);
@@ -1472,12 +1475,18 @@ function getPendingPersonalSyncInfo(trip, myMemberName) {
 }
 
 // 修改行程计划日期（进行中随时可改）
-async function updateTripDates(tripId, startDate, endDate) {
-  const trip = await fetchTripByIdFromCloud(tripId);
+async function updateTripDates(tripId, startDate, endDate, existingTrip) {
+  let trip = existingTrip;
+  if (!trip || trip.id !== tripId) {
+    trip = await fetchTripByIdFromCloud(tripId);
+  }
   if (!trip) return { success: false, msg: '未找到该行程' };
   if (startDate !== undefined) trip.startDate = startDate;
   if (endDate !== undefined) trip.endDate = endDate;
-  await updateTrip(trip);
+  const ok = await updateTrip(trip);
+  if (!ok) {
+    return { success: false, msg: '同步云端失败，请检查网络设置' };
+  }
   return { success: true, trip };
 }
 

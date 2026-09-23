@@ -643,6 +643,7 @@
   <!-- 专属高颜值旅行日历组件（修改计划日期，允许选择过去日期） -->
   <trip-calendar 
     visible="{{showCalendar}}"
+    destination="{{trip.destination}}"
     startDate="{{trip.startDate}}"
     endDate="{{trip.endDate}}"
     allowPast="{{true}}"

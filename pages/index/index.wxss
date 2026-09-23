@@ -314,17 +314,20 @@
 .budget-footer {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: baseline;
 }
 
 .budget-spent {
   font-size: 22rpx;
   color: var(--text-muted);
+  line-height: 1.4;
 }
 
 .budget-rem {
   font-size: 24rpx;
   font-weight: 600;
+  line-height: 1.4;
+  text-align: right;
 }
 
 .budget-rem.normal {

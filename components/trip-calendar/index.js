@@ -74,6 +74,8 @@ const HOLIDAY_MAP = {
   '2027-10-01': { name: '国庆', rest: true }
 };
 
+const { getTripWeather } = require('../../utils/weather');
+
 function getLocalDateStr() {
   const d = new Date();
   const year = d.getFullYear();
@@ -91,6 +93,16 @@ Component({
         if (newVal) {
           this.initSelection();
           this.buildCalendar();
+          this.loadWeather();
+        }
+      }
+    },
+    destination: {
+      type: String,
+      value: '',
+      observer(newVal, oldVal) {
+        if (newVal !== oldVal && this.properties.visible) {
+          this.loadWeather();
         }
       }
     },
@@ -137,7 +149,14 @@ Component({
     currentEnd: '',
     daysCount: 0,
     months: [],
-    scrollToMonthId: ''
+    scrollToMonthId: '',
+    // 天气相关状态
+    weatherLoading: false,
+    weatherLoaded: false,
+    weatherCity: '',
+    weatherSummary: '',
+    weatherTip: '',
+    weatherMap: {}
   },
 
   lifetimes: {
@@ -150,6 +169,9 @@ Component({
       });
       this.initSelection();
       this.buildCalendar();
+      if (this.properties.visible) {
+        this.loadWeather();
+      }
     }
   },
 
@@ -289,7 +311,8 @@ Component({
             isSelectedStart: false,
             isSelectedEnd: false,
             isInRange: false,
-            tipText: isToday ? '今天' : ''
+            tipText: isToday ? '今天' : '',
+            weather: (this.data.weatherMap && this.data.weatherMap[dateStr]) || null
           });
         }
 
@@ -313,12 +336,117 @@ Component({
 
       this.setData({ months }, () => {
         this.updateDaysHighlight();
+        this.updateWeatherTip();
         if (scrollToMonthId) {
           setTimeout(() => {
             this.setData({ scrollToMonthId });
           }, 80);
         }
       });
+    },
+
+    // 加载 Open-Meteo 目的地天气
+    async loadWeather() {
+      const destination = (this.properties.destination || '').trim();
+      if (!destination) {
+        this.setData({
+          weatherLoading: false,
+          weatherLoaded: false,
+          weatherCity: '',
+          weatherSummary: '',
+          weatherTip: '',
+          weatherMap: {}
+        });
+        this.applyWeatherToCalendar({});
+        return;
+      }
+
+      this.setData({
+        weatherLoading: true,
+        weatherCity: destination
+      });
+
+      try {
+        const res = await getTripWeather(destination);
+        if (res && res.success && res.dailyMap) {
+          this.setData({
+            weatherLoading: false,
+            weatherLoaded: true,
+            weatherCity: res.cityName || destination,
+            weatherSummary: res.summary || '',
+            weatherMap: res.dailyMap || {}
+          }, () => {
+            this.applyWeatherToCalendar(res.dailyMap);
+            this.updateWeatherTip();
+          });
+        } else {
+          this.setData({
+            weatherLoading: false,
+            weatherLoaded: false,
+            weatherCity: destination,
+            weatherSummary: res?.msg || '暂无当地天气预报',
+            weatherTip: ''
+          });
+        }
+      } catch (err) {
+        this.setData({
+          weatherLoading: false,
+          weatherLoaded: false,
+          weatherSummary: '天气预报获取受限',
+          weatherTip: ''
+        });
+      }
+    },
+
+    // 将天气数据注入日历网格单元格
+    applyWeatherToCalendar(weatherMap) {
+      const map = weatherMap || this.data.weatherMap || {};
+      const { months } = this.data;
+      if (!months || months.length === 0) return;
+
+      const newMonths = months.map(m => {
+        const days = m.days.map(d => {
+          if (d.isPlaceholder) return d;
+          return {
+            ...d,
+            weather: map[d.dateStr] || null
+          };
+        });
+        return { ...m, days };
+      });
+
+      this.setData({ months: newMonths });
+    },
+
+    // 根据选定的行程日期生成天气贴心提示
+    updateWeatherTip() {
+      const { currentStart, currentEnd, weatherMap, weatherLoaded, weatherCity, weatherSummary } = this.data;
+      if (!weatherLoaded) {
+        this.setData({ weatherTip: '' });
+        return;
+      }
+
+      let tip = '';
+      const startW = currentStart && weatherMap[currentStart];
+      const endW = currentEnd && weatherMap[currentEnd];
+
+      if (startW && endW) {
+        if (currentStart === currentEnd) {
+          tip = `当日(${currentStart.slice(5)}) ${startW.icon} ${startW.text} ${startW.tempRange}`;
+        } else {
+          tip = `去程(${currentStart.slice(5)}) ${startW.icon} ${startW.maxTemp}° · 返程(${currentEnd.slice(5)}) ${endW.icon} ${endW.maxTemp}°`;
+        }
+      } else if (startW) {
+        tip = `出发日(${currentStart.slice(5)}) ${startW.icon} ${startW.text} ${startW.tempRange}`;
+      } else if (endW) {
+        tip = `返程日(${currentEnd.slice(5)}) ${endW.icon} ${endW.text} ${endW.tempRange}`;
+      } else if (currentStart) {
+        tip = `已选日期超出16天短期预报范围，近期气候参考：${weatherSummary}`;
+      } else {
+        tip = `近期天气：${weatherSummary}`;
+      }
+
+      this.setData({ weatherTip: tip });
     },
 
     // 更新高亮区间与标记
@@ -392,6 +520,7 @@ Component({
         daysCount
       }, () => {
         this.updateDaysHighlight();
+        this.updateWeatherTip();
       });
     },
 
@@ -403,6 +532,7 @@ Component({
         daysCount: 0
       }, () => {
         this.updateDaysHighlight();
+        this.updateWeatherTip();
       });
     },
 
