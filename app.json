@@ -14,9 +14,9 @@
   ],
   "window": {
     "navigationBarTextStyle": "black",
-    "navigationBarTitleText": "记账本",
-    "navigationBarBackgroundColor": "#F7F9FC",
-    "backgroundColor": "#F7F9FC"
+    "navigationBarTitleText": "友行A账",
+    "navigationBarBackgroundColor": "#F4F8F5",
+    "backgroundColor": "#F4F8F5"
   },
   "style": "v2",
   "componentFramework": "glass-easel",

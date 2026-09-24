@@ -1,0 +1,416 @@
+<view class="container">
+  <!-- 头部资产卡片 -->
+  <view class="asset-card-wrapper">
+    <view class="asset-card">
+      
+      <view class="card-header">
+        <view class="card-tag">
+          <text class="dot"></text>
+          <text class="tag-text">我的账本</text>
+        </view>
+        <view class="refresh-btn touch-active" bindtap="refreshPage">
+          <image class="refresh-icon {{loading ? 'rotating' : ''}}" src="/images/refresh.png"></image>
+          <text>刷新</text>
+        </view>
+      </view>
+
+      <view class="balance-content">
+        <view class="balance-top">
+          <text class="balance-label">当前结余 (元)</text>
+          <view class="eye-btn touch-active" bindtap="toggleHideAmount">
+            <text class="eye-icon">{{isHideAmount ? '🙈' : '👁️'}}</text>
+          </view>
+        </view>
+        <view class="balance-row">
+          <text class="currency-symbol" wx:if="{{!isHideAmount}}">¥</text>
+          <text class="balance-amount font-number">{{isHideAmount ? '****' : totalBalance}}</text>
+        </view>
+      </view>
+
+      <view class="stats-glass-bar">
+        <view class="stats-col">
+          <view class="stats-label-wrap">
+            <view class="indicator-badge income-badge">收</view>
+            <text class="stats-label">本月收入</text>
+          </view>
+          <text class="stats-val income font-number">{{isHideAmount ? '****' : '+¥' + monthIncome}}</text>
+        </view>
+        
+        <view class="stats-divider"></view>
+
+        <view class="stats-col">
+          <view class="stats-label-wrap">
+            <view class="indicator-badge expense-badge">支</view>
+            <text class="stats-label">本月支出</text>
+          </view>
+          <text class="stats-val expense font-number">{{isHideAmount ? '****' : '-¥' + monthExpense}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+  
+  <!-- 快捷记账入口 -->
+  <view class="action-grid">
+    <view class="action-card expense-card touch-active" bindtap="goToExpense">
+      <view class="action-info">
+        <text class="action-title">记支出</text>
+        <text class="action-desc">记录日常开销</text>
+      </view>
+      <view class="action-icon-box expense-icon-box">
+        <image src="/images/expenses.png" class="action-img"></image>
+      </view>
+    </view>
+
+    <view class="action-card income-card touch-active" bindtap="goToIncome">
+      <view class="action-info">
+        <text class="action-title">记收入</text>
+        <text class="action-desc">记录薪资进账</text>
+      </view>
+      <view class="action-icon-box income-icon-box">
+        <image src="/images/income.png" class="action-img"></image>
+      </view>
+    </view>
+  </view>
+
+  <!-- 月度预算卡片 -->
+  <view class="budget-card touch-active" bindtap="setBudget">
+    <view class="budget-header">
+      <view class="budget-title-row">
+        <text class="budget-icon">🎯</text>
+        <text class="budget-title">本月预算</text>
+        <text class="budget-status-tag {{budgetStatus}}" wx:if="{{hasBudget}}">{{isOverBudget ? '已超支' : (budgetPercent >= 80 ? '预警' : '充裕')}}</text>
+      </view>
+      <view class="budget-action">
+        <text class="budget-btn-text">{{hasBudget ? ('¥' + monthlyBudget) : '未设置'}}</text>
+        <text class="budget-arrow">›</text>
+      </view>
+    </view>
+
+    <!-- 已设置预算展示进度条 -->
+    <block wx:if="{{hasBudget}}">
+      <view class="progress-bar-wrap">
+        <view class="progress-track">
+          <view class="progress-fill {{budgetStatus}}" style="width: {{budgetPercent}}%;"></view>
+        </view>
+      </view>
+      <view class="budget-footer">
+        <text class="budget-spent">已用 {{budgetPercent}}%（¥{{isHideAmount ? '***' : monthExpense}}）</text>
+        <text class="budget-rem {{budgetStatus}}">{{isOverBudget ? '超支 ¥' + (isHideAmount ? '***' : budgetRemaining) : '剩余 ¥' + (isHideAmount ? '***' : budgetRemaining)}}</text>
+      </view>
+    </block>
+
+    <!-- 未设置预算引导 -->
+    <view class="budget-empty" wx:else>
+      <text class="budget-tip">设定每月消费限额，合理规划开销</text>
+      <text class="budget-set-link">去设置</text>
+    </view>
+  </view>
+
+  <!-- 旅行小队协同专区 (旅行清单 + AA结算 + 多人决策) -->
+  <view class="trip-hub-section">
+    <!-- 有进行中小队时：显示工作台头部与进行中卡片 -->
+    <block wx:if="{{ongoingTrips.length > 0}}">
+      <view class="trip-section-head">
+        <view class="trip-head-title">
+          <text class="trip-head-icon">✈️</text>
+          <text class="trip-head-text">旅行小队工作台</text>
+        </view>
+        <view class="trip-head-actions">
+          <!-- 在发起新行程前面添加历史行程 -->
+          <view class="trip-history-link touch-active" bindtap="goToTripList">
+            <text class="thl-icon">📁</text>
+            <text class="thl-txt">历史行程</text>
+            <text class="thl-count font-number" wx:if="{{historyTrips.length > 0}}">({{historyTrips.length}})</text>
+          </view>
+          <view class="trip-add-link touch-active" bindtap="goToTripCreate">
+            <text>+ 发起新行程</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 进行中小队卡片列表 -->
+      <view 
+        class="trip-active-card touch-active" 
+        wx:for="{{ongoingTrips}}" 
+        wx:key="id" 
+        data-id="{{item.id}}" 
+        bindtap="goToTripDetail"
+      >
+        <view class="tac-top">
+          <view class="tac-title-box">
+            <view class="tac-title-row">
+              <text class="tac-title">{{item.title}}</text>
+              <view class="tac-status-tag tag-ongoing">
+                <text class="dot">●</text> 进行中
+              </view>
+            </view>
+            <view class="tac-dest-row">
+              <text class="tac-dest">📍 {{item.destination || '旅行进行中'}}</text>
+              <text class="tac-dates" wx:if="{{item.startDate}}">{{item.startDate}} ~ {{item.endDate}}</text>
+            </view>
+          </view>
+          <view class="tac-right-actions">
+            <view class="tac-del-btn touch-active" catchtap="deleteTripFromHome" data-id="{{item.id}}" data-title="{{item.title}}">
+              <text class="tac-del-icon">🗑️</text>
+            </view>
+            <view class="tac-arrow">工作台 ›</view>
+          </view>
+        </view>
+
+        <view class="tac-chips">
+          <view class="tac-chip">
+            <text class="chip-icon">👥</text>
+            <text class="chip-txt">{{item.members.length}}人小队</text>
+          </view>
+          <view class="tac-chip">
+            <text class="chip-icon">💳</text>
+            <text class="chip-txt">AA消费 ({{item.expenses.length}}笔)</text>
+          </view>
+          <view class="tac-chip quick-decision-chip touch-active" catchtap="openTripQuickDecision" data-id="{{item.id}}">
+            <text class="chip-icon">🎯</text>
+            <text class="chip-txt">快速决策</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 独立舒适的口令加入入口栏 -->
+      <view class="trip-join-bar touch-active" bindtap="openJoinModal">
+        <view class="tjb-left">
+          <text class="tjb-icon">🔑</text>
+          <text class="tjb-text">有队友分享的口令？点此输入加入</text>
+        </view>
+        <text class="tjb-arrow">›</text>
+      </view>
+    </block>
+
+    <!-- 没有进行中行程时：还原成图中的 UI 样式，并在右上角添加历史行程 -->
+    <block wx:else>
+      <view class="trip-promo-card">
+        <view class="promo-top-row">
+          <view class="promo-badge">全新功能</view>
+          <!-- 模块右上角加一个历史行程 -->
+          <view class="promo-history-link touch-active" bindtap="goToTripList">
+            <text class="phl-icon">📁</text>
+            <text class="phl-txt">历史行程</text>
+            <text class="phl-count font-number" wx:if="{{historyTrips.length > 0}}">({{historyTrips.length}})</text>
+            <text class="phl-arrow">›</text>
+          </view>
+        </view>
+        <view class="promo-header">
+          <view class="promo-title">🧳 旅行小队协同工作台</view>
+          <view class="promo-desc">行李清单打卡 · AA智能平账 · 命运决策转盘</view>
+        </view>
+        <view class="promo-actions-row">
+          <view class="promo-btn-primary touch-active" bindtap="goToTripCreate">
+            <text>+ 发起我的小队</text>
+          </view>
+          <view class="promo-btn-secondary touch-active" bindtap="openJoinModal">
+            <text>🔑 口令加入同行</text>
+          </view>
+        </view>
+      </view>
+    </block>
+  </view>
+
+  <!-- 口令加入小队弹窗 -->
+  <view class="modal-mask" wx:if="{{showJoinModal}}">
+    <view class="modal-box">
+      <!-- 步骤 1：输入口令并查询 -->
+      <block wx:if="{{!queriedTrip}}">
+        <view class="modal-title">🔑 口令加入旅行小队</view>
+        <view class="modal-sub">输入队友分享给你的 6 位小队口令</view>
+
+        <view class="modal-field">
+          <text class="modal-label">6位小队口令</text>
+          <input 
+            class="modal-input code-inp font-number" 
+            placeholder="如：K8P29M" 
+            maxlength="10"
+            value="{{joinInputCode}}" 
+            bindinput="onJoinCodeInput" 
+          />
+        </view>
+
+        <view class="modal-btns">
+          <button class="m-btn cancel touch-active" bindtap="closeJoinModal">取消</button>
+          <button class="m-btn confirm touch-active" bindtap="queryTripByInputCode" loading="{{isQueryingCode}}">查询小队</button>
+        </view>
+      </block>
+
+      <!-- 步骤 2：展示小队信息与成员名单，支持勾选自己或填写新名称 -->
+      <block wx:else>
+        <view class="modal-title">🧳 找到旅行小队</view>
+        
+        <!-- 小队信息卡片 -->
+        <view class="queried-trip-info">
+          <view class="q-trip-main">
+            <text class="q-trip-title">{{queriedTrip.title}}</text>
+            <text class="q-trip-meta">📍 {{queriedTrip.destination || '目的地待定'}} · 口令: {{queriedTrip.code}}</text>
+          </view>
+          <view class="q-trip-reset touch-active" bindtap="resetQueriedTrip">
+            <text>更换</text>
+          </view>
+        </view>
+
+        <view class="modal-field-group">
+          <view class="modal-label-row">
+            <text class="modal-label">请勾选你在小队中的名字：</text>
+          </view>
+          
+          <!-- 成员列表滚动区 -->
+          <scroll-view scroll-y class="member-claim-scroll">
+            <view class="member-claim-list">
+              <!-- 已有成员单选列表 -->
+              <view 
+                wx:for="{{queriedTrip.members}}" 
+                wx:key="*this"
+                class="member-claim-item {{selectedMemberName === item && !isNewMember ? 'selected' : ''}}"
+                bindtap="selectExistingMember"
+                data-name="{{item}}"
+              >
+                <view class="m-radio {{selectedMemberName === item && !isNewMember ? 'checked' : ''}}">
+                  <text class="m-radio-inner" wx:if="{{selectedMemberName === item && !isNewMember}}">✓</text>
+                </view>
+                <text class="m-name">{{item}}</text>
+              </view>
+
+              <!-- 我是新成员（不在名单中） -->
+              <view 
+                class="member-claim-item new-member-item {{isNewMember ? 'selected' : ''}}"
+                bindtap="selectNewMemberOption"
+              >
+                <view class="m-radio {{isNewMember ? 'checked' : ''}}">
+                  <text class="m-radio-inner" wx:if="{{isNewMember}}">✓</text>
+                </view>
+                <text class="m-name">+ 我是新成员（填写新名字）</text>
+              </view>
+            </view>
+          </scroll-view>
+
+          <!-- 新成员输入框 -->
+          <view class="new-member-input-box" wx:if="{{isNewMember}}">
+            <input 
+              class="modal-input" 
+              placeholder="请输入你的姓名/昵称（方便AA对账）" 
+              maxlength="10"
+              value="{{joinMemberName}}" 
+              bindinput="onJoinNameInput" 
+              focus="{{isNewMember}}"
+            />
+          </view>
+        </view>
+
+        <view class="modal-btns">
+          <button class="m-btn cancel touch-active" bindtap="resetQueriedTrip">更换口令</button>
+          <button class="m-btn confirm touch-active" bindtap="confirmJoinTrip">
+            {{isNewMember ? '加入并进入' : (selectedMemberName ? '进入小队 (' + selectedMemberName + ')' : '请先勾选身份')}}
+          </button>
+        </view>
+      </block>
+    </view>
+  </view>
+
+
+  <!-- 统计分析入口横幅 -->
+  <view class="chart-banner touch-active" bindtap="goToChart">
+    <view class="banner-left">
+      <view class="banner-icon-circle">📊</view>
+      <view class="banner-text-wrap">
+        <text class="banner-title">智能统计与消费透视</text>
+        <text class="banner-desc">查看支出占比环形图、日均消费与理财洞察</text>
+      </view>
+    </view>
+    <view class="banner-right">
+      <text class="banner-go-text">查看图表</text>
+      <text class="banner-arrow">›</text>
+    </view>
+  </view>
+
+  <!-- 最近账单列表 -->
+  <view class="bill-section">
+    <view class="section-header">
+      <view class="title-with-bar">
+        <view class="title-bar"></view>
+        <text class="section-title">最近账单</text>
+      </view>
+      <view class="section-more touch-active" bindtap="goToBillList">
+        <text>查看明细</text>
+        <text class="more-arrow">›</text>
+      </view>
+    </view>
+
+    <view class="bill-list">
+      <block wx:for="{{recentBills}}" wx:key="id">
+        <view class="bill-item touch-active" bindtap="viewBillDetail" data-id="{{item.id}}">
+          <view class="icon-avatar {{item.type}}">
+            <text class="iconfont icon-a-068_{{item.categoryIcon}}"></text>
+          </view>
+          <view class="bill-info">
+            <text class="bill-category">{{item.category}}</text>
+            <text class="bill-time">{{item.date}}</text>
+          </view>
+          <view class="bill-amount-wrap">
+            <text class="bill-amount font-number {{item.type}}">{{item.type === 'income' ? '+' : '-'}}¥{{item.amount}}</text>
+          </view>
+        </view>
+      </block>
+
+      <!-- 空数据状态 -->
+      <view class="empty-state" wx:if="{{recentBills.length === 0}}">
+        <image src="/images/empty.png" class="empty-img" mode="aspectFit"></image>
+        <text class="empty-title">暂无账单记录</text>
+        <text class="empty-sub">开启你的第一笔记账生活吧</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 首页快速决策投票弹窗 -->
+  <view class="modal-mask quick-decision-mask" wx:if="{{showQuickDecisionModal}}" bindtap="closeQuickDecisionModal">
+    <view class="quick-decision-modal" catchtap="true">
+      <view class="qdm-header">
+        <view class="qdm-meta">
+          <text class="qdm-trip-badge">🧳 {{quickDecisionTrip.title}}</text>
+          <text class="qdm-my-identity">身份: {{quickDecisionMyName}}</text>
+        </view>
+        <view class="qdm-close-btn touch-active" bindtap="closeQuickDecisionModal">✕</view>
+      </view>
+
+      <view class="qdm-title-wrap">
+        <text class="qdm-icon">🎯</text>
+        <text class="qdm-title">{{quickDecision.title}}</text>
+      </view>
+      <view class="qdm-sub">点击选项即可快速投票或切换（再次点击撤销）</view>
+
+      <!-- 选项列表 -->
+      <view class="qdm-options-list">
+        <view 
+          class="qdm-opt-card {{quickDecisionMyVote === item.id ? 'active' : ''}} touch-active" 
+          wx:for="{{quickDecision.options}}" 
+          wx:key="id"
+          bindtap="castQuickVote"
+          data-optid="{{item.id}}"
+        >
+          <view class="qdm-opt-left">
+            <view class="qdm-radio {{quickDecisionMyVote === item.id ? 'checked' : ''}}">
+              <text wx:if="{{quickDecisionMyVote === item.id}}">✓</text>
+            </view>
+            <text class="qdm-opt-text">{{item.text}}</text>
+          </view>
+          <view class="qdm-opt-right">
+            <text class="qdm-vote-count font-number" wx:if="{{item.votes > 0}}">{{item.votes}}票</text>
+            <text class="qdm-my-tag" wx:if="{{quickDecisionMyVote === item.id}}">我已投</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 底部操作栏 -->
+      <view class="qdm-footer">
+        <view class="qdm-detail-link touch-active" bindtap="goToQuickDecisionDetail">
+          <text>进入小队工作台详情</text>
+          <text class="qdm-arrow">›</text>
+        </view>
+        <button class="qdm-done-btn touch-active" bindtap="closeQuickDecisionModal">完成</button>
+      </view>
+    </view>
+  </view>
+</view>

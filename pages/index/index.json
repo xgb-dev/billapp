@@ -1,7 +1,7 @@
 {
-  "navigationBarTitleText": "记账本",
-  "navigationBarBackgroundColor": "#F7F9FC",
+  "navigationBarTitleText": "友行A账",
+  "navigationBarBackgroundColor": "#F4F8F5",
   "navigationBarTextStyle": "black",
-  "backgroundColor": "#F7F9FC",
+  "backgroundColor": "#F4F8F5",
   "enablePullDownRefresh": true
 }

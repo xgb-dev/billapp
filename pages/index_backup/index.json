@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "记账本",
+  "navigationBarBackgroundColor": "#F7F9FC",
+  "navigationBarTextStyle": "black",
+  "backgroundColor": "#F7F9FC",
+  "enablePullDownRefresh": true
+}

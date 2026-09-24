@@ -1,6 +1,6 @@
 .container {
   min-height: 100vh;
-  background-color: #F8FAFC;
+  background-color: #F4F8F5;
   padding: 24rpx;
   padding-bottom: 180rpx;
   box-sizing: border-box;
@@ -13,7 +13,7 @@
   padding: 10rpx;
   border-radius: 24rpx;
   box-shadow: 0 4rpx 16rpx rgba(15, 23, 42, 0.05);
-  margin-bottom: 28rpx;
+  margin-bottom: 24rpx;
   gap: 12rpx;
 }
 
@@ -57,38 +57,68 @@
 .trip-list-body {
   display: flex;
   flex-direction: column;
-  gap: 24rpx;
+  gap: 20rpx;
 }
 
 .trip-card {
-  background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%);
-  border-radius: 28rpx;
-  padding: 28rpx 30rpx;
-  box-shadow: 0 10rpx 28rpx rgba(15, 23, 42, 0.15);
+  border-radius: 26rpx;
+  padding: 26rpx 28rpx 22rpx;
   color: #FFFFFF;
-  border: 1rpx solid rgba(255, 255, 255, 0.08);
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
+/* 1. 进行中行程卡片：山野松绿主题 (生机、在途) */
+.trip-card.ongoing-card {
+  background: linear-gradient(135deg, #064E3B 0%, #065F46 55%, #047857 100%);
+  box-shadow: 0 12rpx 30rpx -6rpx rgba(6, 78, 59, 0.35);
+  border: 1rpx solid rgba(52, 211, 153, 0.25);
+}
+
+.trip-card.ongoing-card::before {
+  content: "";
+  position: absolute;
+  top: -50rpx;
+  right: -50rpx;
+  width: 180rpx;
+  height: 180rpx;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(52, 211, 153, 0.18) 0%, rgba(52, 211, 153, 0) 70%);
+  pointer-events: none;
+}
+
+/* 2. 历史归档行程卡片：沉静石墨深灰蓝 (归档、沉淀) */
+.trip-card.history-card {
+  background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%);
+  box-shadow: 0 10rpx 26rpx -6rpx rgba(15, 23, 42, 0.22);
+  border: 1rpx solid rgba(148, 163, 184, 0.14);
+}
+
+/* 卡片顶部：标题与状态标签 */
 .tc-top {
-  margin-bottom: 20rpx;
+  margin-bottom: 16rpx;
+  position: relative;
+  z-index: 1;
 }
 
 .tc-title-wrap {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10rpx;
+  margin-bottom: 8rpx;
 }
 
 .tc-title {
   font-size: 32rpx;
-  font-weight: 700;
+  font-weight: 800;
   color: #FFFFFF;
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  margin-right: 16rpx;
+  margin-right: 14rpx;
+  letter-spacing: 0.5rpx;
 }
 
 .tc-status-tag {
@@ -100,6 +130,7 @@
   align-items: center;
   gap: 6rpx;
   flex-shrink: 0;
+  line-height: 1.2;
 }
 
 .tc-status-tag .dot {
@@ -107,9 +138,9 @@
 }
 
 .tc-status-tag.tag-ongoing {
-  background: rgba(16, 185, 129, 0.2);
-  color: #34D399;
-  border: 1rpx solid rgba(52, 211, 153, 0.3);
+  background: rgba(255, 255, 255, 0.22);
+  color: #A7F3D0;
+  border: 1rpx solid rgba(255, 255, 255, 0.35);
 }
 
 .tc-status-tag.tag-settled {
@@ -120,112 +151,147 @@
 
 .tc-status-tag.tag-unsettled {
   background: rgba(245, 158, 11, 0.2);
-  color: #FBBF24;
+  color: #FCD34D;
   border: 1rpx solid rgba(245, 158, 11, 0.35);
 }
 
-.tc-dest {
-  font-size: 24rpx;
-  color: #94A3B8;
-  margin-bottom: 6rpx;
+/* 目的地与时间单行紧凑呈现 */
+.tc-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  flex-wrap: wrap;
+  font-size: 22rpx;
+}
+
+.ongoing-card .tc-dest {
+  color: #A7F3D0;
+  font-weight: 600;
+}
+
+.history-card .tc-dest {
+  color: #CBD5E1;
+  font-weight: 500;
+}
+
+.tc-dot {
+  color: rgba(255, 255, 255, 0.4);
 }
 
 .tc-dates {
-  font-size: 22rpx;
-  color: #64748B;
+  color: rgba(255, 255, 255, 0.7);
 }
 
-/* 汇总信息胶囊 */
-.tc-chips {
-  display: flex;
-  flex-direction: column;
-  gap: 12rpx;
-  background: rgba(255, 255, 255, 0.05);
-  padding: 16rpx 20rpx;
-  border-radius: 18rpx;
-  margin-bottom: 20rpx;
-}
-
-.chip-item {
+/* 精简横排数据徽标 (告别多行厚重大灰块) */
+.tc-chips-row {
   display: flex;
   align-items: center;
-  gap: 10rpx;
+  gap: 12rpx;
+  flex-wrap: wrap;
+  margin-bottom: 18rpx;
+  position: relative;
+  z-index: 1;
+}
+
+.chip-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6rpx;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1rpx solid rgba(255, 255, 255, 0.18);
+  padding: 6rpx 16rpx;
+  border-radius: 12rpx;
+  font-size: 21rpx;
+  color: #E2E8F0;
+  font-weight: 500;
+}
+
+.chip-pill.chip-green {
+  background: rgba(16, 185, 129, 0.2);
+  color: #6EE7B7;
+  border-color: rgba(52, 211, 153, 0.35);
+}
+
+.chip-pill.chip-amber {
+  background: rgba(245, 158, 11, 0.2);
+  color: #FCD34D;
+  border-color: rgba(245, 158, 11, 0.4);
 }
 
 .chip-icon {
-  font-size: 24rpx;
+  font-size: 22rpx;
+  line-height: 1;
 }
 
 .chip-text {
-  font-size: 23rpx;
-  color: #CBD5E1;
+  font-size: 21rpx;
+  line-height: 1;
 }
 
-.chip-item.chip-green .chip-text {
-  color: #34D399;
-  font-weight: 600;
-}
-
-.chip-item.chip-amber .chip-text {
-  color: #FBBF24;
-  font-weight: 600;
-}
-
-/* 底部操作与口令 */
+/* 底部操作与身份 (已移除无用口令) */
 .tc-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-top: 16rpx;
-  border-top: 1rpx solid rgba(255, 255, 255, 0.08);
+  padding-top: 14rpx;
+  border-top: 1rpx solid rgba(255, 255, 255, 0.1);
+  position: relative;
+  z-index: 1;
 }
 
-.tc-code {
-  display: flex;
-  align-items: center;
-  gap: 8rpx;
-  font-size: 22rpx;
-  color: #64748B;
+.tc-role-badge {
+  font-size: 21rpx;
+  color: rgba(255, 255, 255, 0.65);
 }
 
-.code-val {
-  color: #38BDF8;
-  font-weight: 700;
-  letter-spacing: 2rpx;
+.role-txt {
+  font-size: 21rpx;
 }
 
 .tc-actions {
   display: flex;
   align-items: center;
-  gap: 16rpx;
+  gap: 14rpx;
 }
 
 .tc-del-btn {
   font-size: 22rpx;
   color: #FCA5A5;
-  background: rgba(239, 68, 68, 0.15);
-  border: 1rpx solid rgba(239, 68, 68, 0.3);
-  padding: 8rpx 18rpx;
-  border-radius: 16rpx;
+  background: rgba(239, 68, 68, 0.18);
+  border: 1rpx solid rgba(239, 68, 68, 0.35);
+  padding: 6rpx 16rpx;
+  border-radius: 14rpx;
+  font-weight: 600;
 }
 
 .tc-hide-btn {
   font-size: 22rpx;
-  color: #94A3B8;
-  background: rgba(148, 163, 184, 0.15);
+  color: #CBD5E1;
+  background: rgba(148, 163, 184, 0.18);
   border: 1rpx solid rgba(148, 163, 184, 0.3);
-  padding: 8rpx 18rpx;
-  border-radius: 16rpx;
+  padding: 6rpx 16rpx;
+  border-radius: 14rpx;
+  font-weight: 500;
 }
 
-.tc-enter-btn {
-  font-size: 24rpx;
+.ongoing-card .tc-enter-btn {
+  font-size: 23rpx;
+  font-weight: 700;
+  color: #065F46;
+  background: #FFFFFF;
+  padding: 8rpx 22rpx;
+  border-radius: 14rpx;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.12);
+}
+
+.history-card .tc-enter-btn {
+  font-size: 23rpx;
   font-weight: 600;
   color: #34D399;
   background: rgba(16, 185, 129, 0.18);
   border: 1rpx solid rgba(52, 211, 153, 0.3);
-  padding: 8rpx 20rpx;
-  border-radius: 16rpx;
+  padding: 8rpx 22rpx;
+  border-radius: 14rpx;
 }
 
 /* 空状态 */
@@ -267,7 +333,7 @@
   box-shadow: 0 8rpx 20rpx rgba(16, 185, 129, 0.25);
 }
 
-/* 底部悬浮按钮 */
+/* 底部悬浮发起按钮 */
 .bottom-bar {
   position: fixed;
   bottom: 0;

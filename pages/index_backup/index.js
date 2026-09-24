@@ -44,55 +44,13 @@ Page({
     queriedTrip: null,
     selectedMemberName: '',
     isNewMember: false,
-    isQueryingCode: false,
-    seasonalBrand: {
-      season: 'autumn',
-      slogan: '山野同行 秋意浓',
-      icon: '🍁',
-      themeTag: '秋意浓',
-      shareTitle: '友行A账 · 山野同行 秋意浓'
-    }
-  },
-
-  // 获取四季动态品牌标语与图标
-  getSeasonalBrandInfo() {
-    const month = new Date().getMonth() + 1; // 1 - 12
-    // 春夏季 (3月 - 8月)：万物复苏，青草如茵
-    if (month >= 3 && month <= 8) {
-      return {
-        season: 'spring-summer',
-        slogan: '山野同行 青青草',
-        icon: '🌿',
-        themeTag: '青青草',
-        shareTitle: '友行A账 · 山野同行 青青草'
-      };
-    }
-    // 秋季 (9月 - 11月)：金风送爽，层林尽染
-    if (month >= 9 && month <= 11) {
-      return {
-        season: 'autumn',
-        slogan: '山野同行 秋意浓',
-        icon: '🍁',
-        themeTag: '秋意浓',
-        shareTitle: '友行A账 · 山野同行 秋意浓'
-      };
-    }
-    // 冬季 (12月 - 2月)：山野营火，围炉暖意
-    return {
-      season: 'winter',
-      slogan: '山野同行 暖意生',
-      icon: '🪵',
-      themeTag: '暖意生',
-      shareTitle: '友行A账 · 山野同行 暖意生'
-    };
+    isQueryingCode: false
   },
 
   onLoad(options) {
-    const seasonalBrand = this.getSeasonalBrandInfo();
     const isHideAmount = wx.getStorageSync('isHideAmount') || false;
     const monthlyBudget = parseFloat(wx.getStorageSync('monthlyBudget')) || 0;
     this.setData({
-      seasonalBrand,
       isHideAmount,
       monthlyBudget,
       hasBudget: monthlyBudget > 0
@@ -148,9 +106,8 @@ Page({
         path: `/pages/index/index?joinCode=${code}`
       };
     }
-    const seasonal = this.data.seasonalBrand || this.getSeasonalBrandInfo();
     return {
-      title: (seasonal && seasonal.shareTitle) ? seasonal.shareTitle : '友行A账 · 山野同行 秋意浓',
+      title: '极简记账与旅行小队',
       path: '/pages/index/index',
     };
   },
@@ -592,24 +549,6 @@ async loadWithOpenid() {
         url: `/pages/trip/trip-detail?tripId=${tripId}`
       });
     }
-  },
-
-  // 首页卡片直接快捷添加一笔旅行 AA
-  goToTripAAAdd(e) {
-    const tripId = e.currentTarget.dataset.id;
-    if (!tripId) return;
-    wx.navigateTo({
-      url: `/pages/trip/aa-add?tripId=${tripId}`
-    });
-  },
-
-  // 首页卡片直接进入旅行行李打卡清单
-  goToTripChecklist(e) {
-    const tripId = e.currentTarget.dataset.id;
-    if (!tripId) return;
-    wx.navigateTo({
-      url: `/pages/trip/trip-detail?tripId=${tripId}&tab=checklist`
-    });
   },
 
   // 新建旅行活动

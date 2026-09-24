@@ -1,7 +1,7 @@
 {
   "navigationBarTitleText": "行程列表与历史归档",
-  "navigationBarBackgroundColor": "#F7F9FC",
+  "navigationBarBackgroundColor": "#F4F8F5",
   "navigationBarTextStyle": "black",
-  "backgroundColor": "#F7F9FC",
+  "backgroundColor": "#F4F8F5",
   "enablePullDownRefresh": true
 }
