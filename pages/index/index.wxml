@@ -3,12 +3,10 @@
   <view class="brand-hero-header">
     <view class="brand-info">
       <view class="brand-logo-row">
-        <text class="brand-badge-icon">{{seasonalBrand.icon || '🍁'}}</text>
-        <text class="brand-title">友行A账</text>
-        <text class="brand-sub-badge">户外AA同行</text>
-      </view>
-      <view class="brand-slogan-row">
-        <text class="brand-slogan">{{seasonalBrand.slogan || '山野同行 秋意浓'}}</text>
+        
+        <!-- <text class="brand-title">友行A账</text> -->
+        
+        <text class="brand-sub-badge"><text class="">{{seasonalBrand.icon || '🍁'}}</text>{{seasonalBrand.slogan || '山野同行 秋意浓'}}</text>
       </view>
     </view>
     <view class="brand-actions">
@@ -146,9 +144,9 @@
     <block wx:else>
       <view class="nature-promo-card">
         <view class="npc-top-row">
-          <view class="npc-badge">
-            <text class="npc-badge-dot">{{seasonalBrand.icon || '🍁'}}</text>
-            <text>山野同行 · 友行A账</text>
+          <view class="npc-title-box">
+            <text class="npc-headline">开启一段山野同行</text>
+            <text class="npc-subline">结伴出游账目明晰</text>
           </view>
           <view class="npc-history-link touch-active" bindtap="goToTripList">
             <text class="nhl-icon">📁</text>
@@ -159,10 +157,7 @@
         </view>
 
         <view class="npc-content">
-          <view class="npc-title-box">
-            <text class="npc-headline">开启一段山野同行</text>
-            <text class="npc-subline">结伴出游账目明晰，{{seasonalBrand.slogan || '山野同行 秋意浓'}}</text>
-          </view>
+          
 
           <!-- 核心功能亮点三联标签 -->
           <view class="npc-features-grid">
